@@ -7,6 +7,7 @@ import {
   BellRing,
   Building2,
   Cpu,
+  Gauge,
   LayoutDashboard,
   Map,
   TableProperties,
@@ -17,6 +18,8 @@ const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Floor Plan", href: "/floor-plan", icon: Map },
   { name: "Rooms", href: "/rooms", icon: TableProperties },
+  { name: "Sensors", href: "/sensors", icon: Gauge },
+  { name: "Alerts", href: "/alerts", icon: BellRing },
 ];
 
 export function Sidebar({ activeAlerts }: { activeAlerts: AlertWithRelations[] }) {
@@ -68,11 +71,7 @@ export function Sidebar({ activeAlerts }: { activeAlerts: AlertWithRelations[] }
           <div className="mt-2 space-y-1 opacity-70">
             <div className="flex items-center gap-3 px-3.5 py-2.5 text-xs text-slate-500">
               <Cpu size={16} />
-              Sensor registry
-            </div>
-            <div className="flex items-center gap-3 px-3.5 py-2.5 text-xs text-slate-500">
-              <BellRing size={16} />
-              Alert actions
+              Role-based user management
             </div>
           </div>
         </div>

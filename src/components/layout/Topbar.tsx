@@ -6,6 +6,7 @@ import { Bell, Calendar, CheckCircle2, Menu, ShieldAlert } from "lucide-react";
 import { alertSeverityLabel, alertSeverityVariant, formatDateTime } from "@/lib/building-ui";
 import type { AlertWithRelations } from "@/types/building";
 import { Badge } from "../common/Badge";
+import { LogoutButton } from "../auth/LogoutButton";
 
 function screenCopy(pathname: string) {
   switch (pathname) {
@@ -18,6 +19,16 @@ function screenCopy(pathname: string) {
       return {
         title: "Rooms Directory",
         subtitle: "Searchable inventory backed by the rooms endpoint.",
+      };
+    case "/sensors":
+      return {
+        title: "Sensor Registry",
+        subtitle: "Manage sensor assets and their room assignments.",
+      };
+    case "/alerts":
+      return {
+        title: "Alert Operations",
+        subtitle: "Create, update, resolve, and remove operational alerts.",
       };
     default:
       return {
@@ -119,6 +130,8 @@ export function Topbar({ activeAlerts }: { activeAlerts: AlertWithRelations[] })
             </div>
           )}
         </div>
+
+        <LogoutButton />
       </div>
     </header>
   );

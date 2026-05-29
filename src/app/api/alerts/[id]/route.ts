@@ -1,0 +1,128 @@
+import { prisma } from "@/lib/prisma";
+import { apiError, forbidden, noContent, ok, unauthorized, validationError } from "@/lib/api-response";
+import { requireUser } from "@/lib/auth-users";
+import { alertUpdateSchema } from "@/lib/validation";
+import { Prisma } from "@prisma/client";
+
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+async function validateAlertRelations(roomId: string, sensorId?: string | null) {
+  const room = await prisma.room.findUnique({
+    where: { id: roomId },
+  });
+
+  if (!room) {
+    return "Selected room does not exist.";
+  }
+
+  if (sensorId) {
+    const sensor = await prisma.sensor.findUnique({
+      where: { id: sensorId },
+    });
+
+    if (!sensor || sensor.roomId !== roomId) {
+      return "Selected sensor must belong to the selected room.";
+    }
+  }
+
+  return null;
+}
+
+export async function GET(_request: Request, context: RouteContext) {
+  const user = await requireUser();
+
+  if (!user) {
+    return unauthorized();
+  }
+
+  const { id } = await context.params;
+  const alert = await prisma.alert.findUnique({
+    where: { id },
+    include: {
+      room: true,
+      sensor: true,
+    },
+  });
+
+  if (!alert) {
+    return apiError("Alert not found.", 404);
+  }
+
+  return ok(alert);
+}
+
+export async function PUT(request: Request, context: RouteContext) {
+  const user = await requireUser();
+
+  if (!user) {
+    return unauthorized();
+  }
+
+  if (user.role !== "ADMIN") {
+    return forbidden();
+  }
+
+  const { id } = await context.params;
+  const parsed = alertUpdateSchema.safeParse(await request.json().catch(() => null));
+
+  if (!parsed.success) {
+    return validationError(parsed.error);
+  }
+
+  const relationError = await validateAlertRelations(parsed.data.roomId, parsed.data.sensorId);
+
+  if (relationError) {
+    return apiError(relationError, relationError.includes("room") ? 404 : 400);
+  }
+
+  try {
+    const alert = await prisma.alert.update({
+      where: { id },
+      data: parsed.data,
+      include: {
+        room: true,
+        sensor: true,
+      },
+    });
+
+    return ok(alert);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return apiError("Alert not found.", 404);
+    }
+
+    console.error("PUT /api/alerts/[id] error:", error);
+    return apiError("Failed to update alert");
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const user = await requireUser();
+
+  if (!user) {
+    return unauthorized();
+  }
+
+  if (user.role !== "ADMIN") {
+    return forbidden();
+  }
+
+  const { id } = await context.params;
+
+  try {
+    await prisma.alert.delete({
+      where: { id },
+    });
+
+    return noContent();
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return apiError("Alert not found.", 404);
+    }
+
+    console.error("DELETE /api/alerts/[id] error:", error);
+    return apiError("Failed to delete alert");
+  }
+}

@@ -1,17 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, RefreshCcw, Search } from "lucide-react";
-import { getRooms } from "@/lib/building-api";
+import { ArrowUpDown, Pencil, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
+import { createRoom, deleteRoom, getRooms, updateRoom } from "@/lib/building-api";
 import {
   occupancyBadgeVariant,
   occupancyLabel,
   statusBadgeVariant,
   statusLabel,
 } from "@/lib/building-ui";
+import type { RoomFormInput } from "@/lib/validation";
 import type { OccupancyStatus, RoomStatus, RoomWithRelations } from "@/types/building";
 import { Badge } from "../common/Badge";
 import { Card } from "../common/Card";
+import { ConfirmDialog } from "../common/ConfirmDialog";
+import { EmptyState } from "../common/EmptyState";
+import { Feedback } from "../common/Feedback";
+import { RoomForm } from "./RoomForm";
 
 type SortField = "name" | "floor" | "temperature" | "energyConsumption" | "status";
 type SortOrder = "asc" | "desc";
@@ -19,13 +24,18 @@ type SortOrder = "asc" | "desc";
 export function RoomsTable() {
   const [rooms, setRooms] = useState<RoomWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [floorFilter, setFloorFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState<RoomStatus | "ALL">("ALL");
   const [occupancyFilter, setOccupancyFilter] = useState<OccupancyStatus | "ALL">("ALL");
   const [sortField, setSortField] = useState<SortField>("floor");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [editingRoom, setEditingRoom] = useState<RoomWithRelations | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [deletingRoom, setDeletingRoom] = useState<RoomWithRelations | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -37,9 +47,9 @@ export function RoomsTable() {
           setError(null);
         }
       })
-      .catch((requestError: Error) => {
+      .catch((requestError) => {
         if (isMounted) {
-          setError(requestError.message);
+          setError(requestError instanceof Error ? requestError.message : "Failed to load rooms.");
         }
       })
       .finally(() => {
@@ -101,20 +111,60 @@ export function RoomsTable() {
     setOccupancyFilter("ALL");
   };
 
+  const handleSubmit = async (input: RoomFormInput) => {
+    setIsSubmitting(true);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      if (editingRoom) {
+        const updated = await updateRoom(editingRoom.id, input);
+        setRooms((current) => current.map((room) => (room.id === updated.id ? updated : room)));
+        setFeedback("Room updated.");
+      } else {
+        const created = await createRoom(input);
+        setRooms((current) => [...current, created]);
+        setFeedback("Room created.");
+      }
+
+      setIsFormOpen(false);
+      setEditingRoom(null);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Failed to save room.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deletingRoom) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await deleteRoom(deletingRoom.id);
+      setRooms((current) => current.filter((room) => room.id !== deletingRoom.id));
+      setFeedback("Room deleted.");
+      setDeletingRoom(null);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Failed to delete room.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (isLoading) {
     return <Card>Loading rooms...</Card>;
   }
 
-  if (error) {
-    return (
-      <Card statusBorder="critical" title="Unable to load rooms">
-        <p className="text-sm text-slate-600">{error}</p>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-6">
+      {error && <Feedback type="error" message={error} />}
+      {feedback && <Feedback type="success" message={feedback} />}
+
       <Card>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-sm">
@@ -173,62 +223,85 @@ export function RoomsTable() {
                 <RefreshCcw size={15} />
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditingRoom(null);
+                setIsFormOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+            >
+              <Plus size={15} />
+              Add room
+            </button>
           </div>
         </div>
       </Card>
 
+      {isFormOpen && (
+        <Card title={editingRoom ? "Edit Room" : "Create Room"}>
+          <RoomForm
+            room={editingRoom}
+            isSubmitting={isSubmitting}
+            onCancel={() => {
+              setIsFormOpen(false);
+              setEditingRoom(null);
+            }}
+            onSubmit={handleSubmit}
+          />
+        </Card>
+      )}
+
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                <th className="px-5 py-4">Room</th>
-                <th className="px-5 py-4 text-center">
-                  <button type="button" onClick={() => handleSort("floor")} className="inline-flex items-center gap-1">
-                    Floor
-                    <ArrowUpDown size={12} />
-                  </button>
-                </th>
-                <th className="px-5 py-4 text-center">
-                  <button
-                    type="button"
-                    onClick={() => handleSort("temperature")}
-                    className="inline-flex items-center gap-1"
-                  >
-                    Temp
-                    <ArrowUpDown size={12} />
-                  </button>
-                </th>
-                <th className="px-5 py-4 text-center">
-                  <button
-                    type="button"
-                    onClick={() => handleSort("energyConsumption")}
-                    className="inline-flex items-center gap-1"
-                  >
-                    Energy
-                    <ArrowUpDown size={12} />
-                  </button>
-                </th>
-                <th className="px-5 py-4 text-center">Occupancy</th>
-                <th className="px-5 py-4 text-center">
-                  <button type="button" onClick={() => handleSort("status")} className="inline-flex items-center gap-1">
-                    Status
-                    <ArrowUpDown size={12} />
-                  </button>
-                </th>
-                <th className="px-5 py-4 text-center">Sensors</th>
-                <th className="px-5 py-4 text-center">Active Alerts</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-sm">
-              {processedRooms.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-5 py-16 text-center font-medium text-slate-400">
-                    No rooms match the current filters.
-                  </td>
+        {processedRooms.length === 0 ? (
+          <EmptyState title="No rooms found" message="Create a room or adjust the filters to see room records." />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[960px] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  <th className="px-5 py-4">Room</th>
+                  <th className="px-5 py-4 text-center">
+                    <button type="button" onClick={() => handleSort("floor")} className="inline-flex items-center gap-1">
+                      Floor <ArrowUpDown size={12} />
+                    </button>
+                  </th>
+                  <th className="px-5 py-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("temperature")}
+                      className="inline-flex items-center gap-1"
+                    >
+                      Temp <ArrowUpDown size={12} />
+                    </button>
+                  </th>
+                  <th className="px-5 py-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("energyConsumption")}
+                      className="inline-flex items-center gap-1"
+                    >
+                      Energy <ArrowUpDown size={12} />
+                    </button>
+                  </th>
+                  <th className="px-5 py-4 text-center">Occupancy</th>
+                  <th className="px-5 py-4 text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleSort("status")}
+                      className="inline-flex items-center gap-1"
+                    >
+                      Status <ArrowUpDown size={12} />
+                    </button>
+                  </th>
+                  <th className="px-5 py-4 text-center">Sensors</th>
+                  <th className="px-5 py-4 text-center">Alerts</th>
+                  <th className="px-5 py-4 text-right">Actions</th>
                 </tr>
-              ) : (
-                processedRooms.map((room) => (
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm">
+                {processedRooms.map((room) => (
                   <tr key={room.id} className="transition hover:bg-slate-50">
                     <td className="px-5 py-4">
                       <p className="font-bold text-slate-900">{room.name}</p>
@@ -257,13 +330,46 @@ export function RoomsTable() {
                     <td className="px-5 py-4 text-center font-mono font-semibold text-slate-700">
                       {room.alerts.length}
                     </td>
+                    <td className="px-5 py-4">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingRoom(room);
+                            setIsFormOpen(true);
+                          }}
+                          className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                          aria-label={`Edit ${room.name}`}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingRoom(room)}
+                          className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50"
+                          aria-label={`Delete ${room.name}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {deletingRoom && (
+        <ConfirmDialog
+          title="Delete room?"
+          message={`This will delete ${deletingRoom.name} and cascade to related sensors and alerts according to the database relation rules.`}
+          isBusy={isSubmitting}
+          onCancel={() => setDeletingRoom(null)}
+          onConfirm={handleDelete}
+        />
+      )}
     </div>
   );
 }

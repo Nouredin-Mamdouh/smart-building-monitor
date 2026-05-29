@@ -17,6 +17,10 @@ export interface Sensor {
   updatedAt: string;
 }
 
+export interface SensorWithRelations extends Sensor {
+  room: Room;
+}
+
 export interface Alert {
   id: string;
   message: string;

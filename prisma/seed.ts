@@ -1,9 +1,39 @@
 import { prisma } from "../src/lib/prisma";
+import bcrypt from "bcryptjs";
 
 async function main() {
     await prisma.alert.deleteMany();
     await prisma.sensor.deleteMany();
     await prisma.room.deleteMany();
+
+    const adminEmail = process.env.SEED_ADMIN_EMAIL;
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+    const adminName = process.env.SEED_ADMIN_NAME ?? "Internal Admin";
+
+    if (adminEmail && adminPassword) {
+        const passwordHash = await bcrypt.hash(adminPassword, 12);
+
+        await prisma.user.upsert({
+            where: {
+                email: adminEmail.toLowerCase(),
+            },
+            update: {
+                name: adminName,
+                passwordHash,
+                role: "ADMIN",
+            },
+            create: {
+                name: adminName,
+                email: adminEmail.toLowerCase(),
+                passwordHash,
+                role: "ADMIN",
+            },
+        });
+    } else {
+        console.warn(
+            "Skipped internal admin seed. Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD to seed a login account."
+        );
+    }
 
     const room101 = await prisma.room.create({
         data: {

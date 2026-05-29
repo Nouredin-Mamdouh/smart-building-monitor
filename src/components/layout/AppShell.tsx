@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { getAlerts } from "@/lib/building-api";
 import type { AlertWithRelations } from "@/types/building";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [alerts, setAlerts] = useState<AlertWithRelations[]>([]);
 
   useEffect(() => {
@@ -28,6 +30,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       isMounted = false;
     };
   }, []);
+
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
