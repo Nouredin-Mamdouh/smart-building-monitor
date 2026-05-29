@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoomStatus {
+  NORMAL
+  WARNING
+  CRITICAL
+}
+
+enum OccupancyStatus {
+  OCCUPIED
+  VACANT
+}
+
+enum SensorType {
+  TEMPERATURE
+  OCCUPANCY
+  ENERGY
+}
+
+enum SensorStatus {
+  OK
+  WARNING
+  CRITICAL
+  OFFLINE
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AlertStatus {
+  ACTIVE
+  RESOLVED
+}
+
+model Room {
+  id                String           @id @default(uuid())
+  name              String
+  floor             Int              @default(1)
+  svgId             String           @unique
+  temperature       Float
+  occupancyStatus   OccupancyStatus
+  energyConsumption Float
+  status            RoomStatus       @default(NORMAL)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  sensors           Sensor[]
+  alerts            Alert[]
+}
+
+model Sensor {
+  id         String       @id @default(uuid())
+  name       String
+  type       SensorType
+  value      Float
+  unit       String
+  status     SensorStatus @default(OK)
+  roomId     String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  room       Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  alerts     Alert[]
+}
+
+model Alert {
+  id         String        @id @default(uuid())
+  message    String
+  severity   AlertSeverity
+  status     AlertStatus   @default(ACTIVE)
+  roomId     String
+  sensorId   String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  room       Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sensor     Sensor?       @relation(fields: [sensorId], references: [id], onDelete: SetNull)
+}
