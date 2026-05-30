@@ -17,6 +17,20 @@ export async function GET() {
             include: {
                 room: true,
                 sensor: true,
+                acknowledgedBy: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
+                resolvedBy: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
             },
             orderBy: {
                 createdAt: "desc",
@@ -78,6 +92,20 @@ export async function POST(request: Request) {
             include: {
                 room: true,
                 sensor: true,
+                acknowledgedBy: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
+                resolvedBy: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
             },
         });
 

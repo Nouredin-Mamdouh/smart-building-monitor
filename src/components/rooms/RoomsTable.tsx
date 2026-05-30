@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, Pencil, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowUpDown, Eye, Pencil, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
 import { useCurrentUser } from "@/components/auth/CurrentUserProvider";
 import { createRoom, deleteRoom, getRooms, updateRoom } from "@/lib/building-api";
 import {
@@ -18,6 +18,8 @@ import { Card } from "../common/Card";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { EmptyState } from "../common/EmptyState";
 import { Feedback } from "../common/Feedback";
+import { Toast } from "../common/Toast";
+import { RoomDetailsDrawer } from "./RoomDetailsDrawer";
 import { RoomForm } from "./RoomForm";
 
 type SortField = "name" | "floor" | "temperature" | "energyConsumption" | "status";
@@ -28,7 +30,6 @@ export function RoomsTable() {
   const canCreateRoom = hasPermission(currentUser.role, "room:create");
   const canUpdateRoom = hasPermission(currentUser.role, "room:update");
   const canDeleteRoom = hasPermission(currentUser.role, "room:delete");
-  const canMutateRooms = canCreateRoom || canUpdateRoom || canDeleteRoom;
   const [rooms, setRooms] = useState<RoomWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,8 +42,10 @@ export function RoomsTable() {
   const [sortField, setSortField] = useState<SortField>("floor");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [editingRoom, setEditingRoom] = useState<RoomWithRelations | null>(null);
+  const [viewingRoomId, setViewingRoomId] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [deletingRoom, setDeletingRoom] = useState<RoomWithRelations | null>(null);
+  const dismissToast = useCallback(() => setFeedback(null), []);
 
   useEffect(() => {
     let isMounted = true;
@@ -80,8 +83,7 @@ export function RoomsTable() {
         const matchesSearch =
           !query ||
           room.name.toLowerCase().includes(query) ||
-          room.svgId.toLowerCase().includes(query) ||
-          room.id.toLowerCase().includes(query);
+          String(room.floor).includes(query);
         const matchesFloor = floorFilter === "ALL" || room.floor === Number(floorFilter);
         const matchesStatus = statusFilter === "ALL" || room.status === statusFilter;
         const matchesOccupancy = occupancyFilter === "ALL" || room.occupancyStatus === occupancyFilter;
@@ -175,10 +177,7 @@ export function RoomsTable() {
   return (
     <div className="space-y-6">
       {error && <Feedback type="error" message={error} />}
-      {feedback && <Feedback type="success" message={feedback} />}
-      {!canMutateRooms && (
-        <Feedback type="info" message="Your role has read-only access to rooms. Room changes require an admin." />
-      )}
+      <Toast message={feedback} onDismiss={dismissToast} />
 
       <Card>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -188,7 +187,7 @@ export function RoomsTable() {
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search rooms, ids, or svg ids..."
+              placeholder="Search rooms or floors..."
               className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-4 text-sm font-medium text-slate-800 outline-none transition focus:border-teal-500 focus:bg-white"
             />
           </div>
@@ -317,7 +316,7 @@ export function RoomsTable() {
                   </th>
                   <th className="px-5 py-4 text-center">Sensors</th>
                   <th className="px-5 py-4 text-center">Alerts</th>
-                  {canMutateRooms && <th className="px-5 py-4 text-right">Actions</th>}
+                  <th className="px-5 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -325,7 +324,7 @@ export function RoomsTable() {
                   <tr key={room.id} className="transition hover:bg-slate-50">
                     <td className="px-5 py-4">
                       <p className="font-bold text-slate-900">{room.name}</p>
-                      <p className="mt-1 font-mono text-xs text-slate-400">{room.svgId}</p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">Floor {room.floor}</p>
                     </td>
                     <td className="px-5 py-4 text-center font-mono font-semibold text-slate-700">{room.floor}</td>
                     <td className="px-5 py-4 text-center font-mono font-semibold text-slate-700">
@@ -350,35 +349,41 @@ export function RoomsTable() {
                     <td className="px-5 py-4 text-center font-mono font-semibold text-slate-700">
                       {room.alerts.length}
                     </td>
-                    {canMutateRooms && (
-                      <td className="px-5 py-4">
-                        <div className="flex justify-end gap-2">
-                          {canUpdateRoom && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingRoom(room);
-                                setIsFormOpen(true);
-                              }}
-                              className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-                              aria-label={`Edit ${room.name}`}
-                            >
-                              <Pencil size={15} />
-                            </button>
-                          )}
-                          {canDeleteRoom && (
-                            <button
-                              type="button"
-                              onClick={() => setDeletingRoom(room)}
-                              className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50"
-                              aria-label={`Delete ${room.name}`}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
+                    <td className="px-5 py-4">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setViewingRoomId(room.id)}
+                          className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                          aria-label={`View ${room.name}`}
+                        >
+                          <Eye size={15} />
+                        </button>
+                        {canUpdateRoom && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingRoom(room);
+                              setIsFormOpen(true);
+                            }}
+                            className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                            aria-label={`Edit ${room.name}`}
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        )}
+                        {canDeleteRoom && (
+                          <button
+                            type="button"
+                            onClick={() => setDeletingRoom(room)}
+                            className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50"
+                            aria-label={`Delete ${room.name}`}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -396,6 +401,7 @@ export function RoomsTable() {
           onConfirm={handleDelete}
         />
       )}
+      {viewingRoomId && <RoomDetailsDrawer roomId={viewingRoomId} onClose={() => setViewingRoomId(null)} />}
     </div>
   );
 }

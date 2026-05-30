@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Calendar, CheckCircle2, Menu, ShieldAlert } from "lucide-react";
+import { Bell, Calendar, CheckCircle2, Menu, ShieldAlert, UserCircle } from "lucide-react";
 import type { CurrentUser } from "@/components/auth/CurrentUserProvider";
-import { roleMeta } from "@/lib/rbac";
 import { alertSeverityLabel, alertSeverityVariant, formatDateTime } from "@/lib/building-ui";
+import { roleMeta } from "@/lib/rbac";
 import type { AlertWithRelations } from "@/types/building";
 import { Badge } from "../common/Badge";
 import { LogoutButton } from "../auth/LogoutButton";
@@ -20,12 +21,12 @@ function screenCopy(pathname: string) {
     case "/floor-plan":
       return {
         title: "Digital Floor Plan",
-        subtitle: "Room telemetry mapped to the live building API.",
+        subtitle: "Room conditions mapped to each floor.",
       };
     case "/rooms":
       return {
         title: "Rooms Directory",
-        subtitle: "Searchable inventory backed by the rooms endpoint.",
+        subtitle: "Search and manage monitored rooms.",
       };
     case "/sensors":
       return {
@@ -37,10 +38,20 @@ function screenCopy(pathname: string) {
         title: "Alert Operations",
         subtitle: "Create, update, resolve, and review operational alerts.",
       };
-    case "/users-roles":
+    case "/access":
       return {
-        title: "User & Role Access",
-        subtitle: "Read-only internal access overview for administrators.",
+        title: "Access",
+        subtitle: "Review team access levels.",
+      };
+    case "/users":
+      return {
+        title: "Users",
+        subtitle: "Manage internal accounts.",
+      };
+    case "/profile":
+      return {
+        title: "Profile",
+        subtitle: "Manage your account settings.",
       };
     default:
       return {
@@ -86,9 +97,16 @@ export function Topbar({
           {today}
         </div>
 
-        <div className={`hidden rounded-full border px-3 py-1.5 text-xs font-bold md:block ${currentRoleMeta.badgeClassName}`}>
-          {currentRoleMeta.label}
-        </div>
+        <Link
+          href="/profile"
+          className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 sm:px-3"
+        >
+          <UserCircle size={15} className="text-slate-500" />
+          <span className="hidden max-w-32 truncate lg:block">{currentUser.name}</span>
+          <span className={`hidden rounded-full border px-2 py-0.5 text-[10px] font-bold sm:inline-flex ${currentRoleMeta.badgeClassName}`}>
+            {currentRoleMeta.label}
+          </span>
+        </Link>
 
         <div className="relative">
           <button

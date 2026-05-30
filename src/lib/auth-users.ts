@@ -1,5 +1,14 @@
 import { auth } from "../../auth";
-import { hasPermission, type Permission } from "@/lib/rbac";
+import { prisma } from "@/lib/prisma";
+import { hasPermission, type AppRole, type Permission } from "@/lib/rbac";
+
+export interface AuthenticatedUser {
+  id: string;
+  name: string;
+  email: string;
+  role: AppRole;
+  isActive: boolean;
+}
 
 export async function requireUser() {
   const session = await auth();
@@ -8,7 +17,27 @@ export async function requireUser() {
     return null;
   }
 
-  return session.user;
+  const user = await prisma.user.findUnique({
+    where: {
+      id: session.user.id,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+    },
+  });
+
+  if (!user?.isActive) {
+    return null;
+  }
+
+  return {
+    ...user,
+    role: user.role as AppRole,
+  };
 }
 
 export async function requireAdmin() {

@@ -113,7 +113,7 @@ export function FloorPlanView() {
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_22rem]">
       <Card
         title="Floor Plan"
-        subtitle="SVG layout uses frontend-only coordinates keyed by room svgId."
+        subtitle="Select a room to inspect its current conditions."
         headerAction={
           <select
             value={selectedFloor ?? ""}
@@ -188,7 +188,7 @@ export function FloorPlanView() {
                   />
                   <rect x={box.x + 8} y={box.y + 8} width="58" height="18" rx="4" className="fill-white/80" />
                   <text x={box.x + 37} y={box.y + 21} textAnchor="middle" className="fill-slate-600 text-[9px] font-bold">
-                    {room.svgId}
+                    F{room.floor}
                   </text>
                   <text
                     x={box.x + box.width / 2}
@@ -248,7 +248,7 @@ export function FloorPlanView() {
         {selectedRoom ? (
           <Card
             title={selectedRoom.name}
-            subtitle={`Floor ${selectedRoom.floor} · ${selectedRoom.svgId}`}
+            subtitle={`Floor ${selectedRoom.floor}`}
             statusBorder={
               selectedRoom.status === "CRITICAL" ? "critical" : selectedRoom.status === "WARNING" ? "warning" : "normal"
             }
@@ -314,13 +314,6 @@ export function FloorPlanView() {
             <p className="text-sm text-slate-500">Select a room from the floor plan to inspect its telemetry.</p>
           </Card>
         )}
-
-        <Card title="Future Controls">
-          <p className="text-sm leading-6 text-slate-500">
-            Lighting, HVAC setpoints, and alert resolution are intentionally not implemented here because the current
-            backend exposes read-only room, sensor, and alert endpoints.
-          </p>
-        </Card>
       </aside>
     </div>
   );

@@ -1,8 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  alertSourceLabel,
+  alertSourceVariant,
+  alertStatusVariant,
+} from "@/lib/building-ui";
 import type { AlertFormInput } from "@/lib/validation";
 import type { AlertWithRelations, RoomWithRelations, SensorWithRelations } from "@/types/building";
+import { Badge } from "../common/Badge";
 import { FormField, SelectInput, TextArea } from "../common/FormField";
 
 export function AlertForm({
@@ -24,7 +30,6 @@ export function AlertForm({
   const [values, setValues] = useState<AlertFormInput>({
     message: alert?.message ?? "",
     severity: alert?.severity ?? "MEDIUM",
-    status: alert?.status ?? "ACTIVE",
     roomId: alert?.roomId ?? firstRoomId,
     sensorId: alert?.sensorId ?? null,
   });
@@ -49,6 +54,15 @@ export function AlertForm({
       }}
       className="space-y-4"
     >
+      {alert && (
+        <div className="flex flex-wrap gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+          <Badge variant={alertStatusVariant(alert.status)} showDot>
+            {alert.status}
+          </Badge>
+          <Badge variant={alertSourceVariant(alert.source)}>{alertSourceLabel(alert.source)}</Badge>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <FormField label="Room">
           <SelectInput
@@ -87,12 +101,6 @@ export function AlertForm({
             <option value="LOW">Low</option>
             <option value="MEDIUM">Medium</option>
             <option value="HIGH">High</option>
-          </SelectInput>
-        </FormField>
-        <FormField label="Status">
-          <SelectInput value={values.status} onChange={(event) => setValue("status", event.target.value)}>
-            <option value="ACTIVE">Active</option>
-            <option value="RESOLVED">Resolved</option>
           </SelectInput>
         </FormField>
       </div>

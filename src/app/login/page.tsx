@@ -2,19 +2,19 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { LoginForm } from "@/components/auth/LoginForm";
-import { auth } from "../../../auth";
 import { DEFAULT_APP_ROUTE, normalizeCallbackUrl } from "@/lib/auth-redirect";
+import { requireUser } from "@/lib/auth-users";
 
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ callbackUrl?: string }>;
 }) {
-  const session = await auth();
+  const user = await requireUser();
   const params = await searchParams;
   const callbackUrl = normalizeCallbackUrl(params.callbackUrl);
 
-  if (session?.user) {
+  if (user) {
     redirect(callbackUrl || DEFAULT_APP_ROUTE);
   }
 

@@ -22,8 +22,8 @@ export async function GET(_request: Request, context: RouteContext) {
     include: {
       sensors: true,
       alerts: {
-        where: {
-          status: "ACTIVE",
+        orderBy: {
+          createdAt: "desc",
         },
       },
     },
@@ -61,8 +61,8 @@ export async function PUT(request: Request, context: RouteContext) {
       include: {
         sensors: true,
         alerts: {
-          where: {
-            status: "ACTIVE",
+          orderBy: {
+            createdAt: "desc",
           },
         },
       },
@@ -76,7 +76,7 @@ export async function PUT(request: Request, context: RouteContext) {
       }
 
       if (error.code === "P2002") {
-        return apiError("A room with this SVG id already exists.", 409);
+        return apiError("A room with this generated location code already exists.", 409);
       }
     }
 

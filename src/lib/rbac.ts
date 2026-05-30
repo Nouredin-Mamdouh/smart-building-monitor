@@ -9,7 +9,11 @@ export type Permission =
   | "sensor:delete"
   | "alert:create"
   | "alert:update"
-  | "alert:delete";
+  | "alert:delete"
+  | "user:create"
+  | "user:update"
+  | "user:delete"
+  | "user:reset-password";
 
 export const roleMeta: Record<AppRole, { label: string; description: string; badgeClassName: string }> = {
   ADMIN: {
@@ -40,6 +44,10 @@ const permissionMap: Record<AppRole, Set<Permission>> = {
     "alert:create",
     "alert:update",
     "alert:delete",
+    "user:create",
+    "user:update",
+    "user:delete",
+    "user:reset-password",
   ]),
   OPERATOR: new Set(["alert:create", "alert:update"]),
   VIEWER: new Set(),

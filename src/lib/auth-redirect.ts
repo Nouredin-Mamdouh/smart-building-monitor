@@ -1,5 +1,15 @@
 const DEFAULT_APP_ROUTE = "/dashboard";
-const allowedCallbackPrefixes = ["/dashboard", "/floor-plan", "/rooms", "/sensors", "/alerts", "/users-roles"];
+const allowedCallbackPrefixes = [
+  "/dashboard",
+  "/floor-plan",
+  "/rooms",
+  "/sensors",
+  "/alerts",
+  "/access",
+  "/users",
+  "/profile",
+  "/users-roles",
+];
 
 export function normalizeCallbackUrl(value: FormDataEntryValue | string | undefined | null) {
   if (typeof value !== "string" || value.length === 0) {

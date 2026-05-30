@@ -27,6 +27,10 @@ export function getRooms() {
   return requestJson<RoomWithRelations[]>("/api/rooms");
 }
 
+export function getRoom(id: string) {
+  return requestJson<RoomWithRelations>(`/api/rooms/${id}`);
+}
+
 export function getAlerts() {
   return requestJson<AlertWithRelations[]>("/api/alerts");
 }
@@ -86,6 +90,18 @@ export function updateAlert(id: string, input: AlertFormInput) {
   return requestJson<AlertWithRelations>(`/api/alerts/${id}`, {
     method: "PUT",
     body: JSON.stringify(input),
+  });
+}
+
+export function acknowledgeAlert(id: string) {
+  return requestJson<AlertWithRelations>(`/api/alerts/${id}/acknowledge`, {
+    method: "POST",
+  });
+}
+
+export function resolveAlert(id: string) {
+  return requestJson<AlertWithRelations>(`/api/alerts/${id}/resolve`, {
+    method: "POST",
   });
 }
 

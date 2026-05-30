@@ -226,12 +226,18 @@ async function seedInternalUser({
             name,
             passwordHash,
             role,
+            isActive: true,
+            deactivatedAt: null,
+            deactivatedById: null,
+            passwordUpdatedAt: new Date(),
         },
         create: {
             name,
             email: email.toLowerCase(),
             passwordHash,
             role,
+            isActive: true,
+            passwordUpdatedAt: new Date(),
         },
     });
 }

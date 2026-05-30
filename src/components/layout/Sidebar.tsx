@@ -6,15 +6,14 @@ import {
   Activity,
   BellRing,
   Building2,
-  Cpu,
   Gauge,
   LayoutDashboard,
   Map,
   ShieldCheck,
   TableProperties,
+  Users,
 } from "lucide-react";
 import type { CurrentUser } from "@/components/auth/CurrentUserProvider";
-import { roleMeta } from "@/lib/rbac";
 import type { AlertWithRelations } from "@/types/building";
 
 const baseNavItems = [
@@ -35,9 +34,12 @@ export function Sidebar({
   const pathname = usePathname();
   const navItems =
     currentUser.role === "ADMIN"
-      ? [...baseNavItems, { name: "User & Role Access", href: "/users-roles", icon: ShieldCheck }]
+      ? [
+          ...baseNavItems,
+          { name: "Access", href: "/access", icon: ShieldCheck },
+          { name: "Users", href: "/users", icon: Users },
+        ]
       : baseNavItems;
-  const currentRoleMeta = roleMeta[currentUser.role];
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-800 bg-slate-950 text-slate-300 md:flex">
@@ -79,29 +81,14 @@ export function Sidebar({
             </Link>
           );
         })}
-
-        <div className="pt-8">
-          <p className="px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Future API Support</p>
-          <div className="mt-2 space-y-1 opacity-70">
-            <div className="flex items-center gap-3 px-3.5 py-2.5 text-xs text-slate-500">
-              <Cpu size={16} />
-              Role-based user management
-            </div>
-          </div>
-        </div>
       </nav>
 
       <div className="border-t border-slate-800 bg-slate-950 px-4 py-4">
         <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <span className="truncate text-xs font-semibold text-slate-200">{currentUser.name}</span>
-            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${currentRoleMeta.badgeClassName}`}>
-              {currentRoleMeta.label}
-            </span>
-          </div>
+          <span className="block truncate text-xs font-semibold text-slate-200">{currentUser.name}</span>
           <div className="mt-2 flex items-center gap-2 text-[10px] font-mono text-slate-500">
             <Activity size={12} className="text-teal-400" />
-            {currentUser.email || "internal user"}
+            {currentUser.email || "Account"}
           </div>
         </div>
       </div>

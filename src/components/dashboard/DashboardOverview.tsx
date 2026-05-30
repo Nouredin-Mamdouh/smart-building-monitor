@@ -139,7 +139,7 @@ export function DashboardOverview() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <Card
           title="Room Status Matrix"
-          subtitle="Live room rows from /api/rooms."
+          subtitle="Current room conditions across monitored floors."
           className="xl:col-span-2"
           headerAction={
             <button
@@ -167,9 +167,7 @@ export function DashboardOverview() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-slate-900">{room.name}</p>
-                    <p className="mt-1 text-xs font-medium text-slate-500">
-                      Floor {room.floor} · {room.svgId}
-                    </p>
+                    <p className="mt-1 text-xs font-medium text-slate-500">Floor {room.floor}</p>
                   </div>
                   <Badge variant={statusBadgeVariant(room.status)}>{statusLabel(room.status)}</Badge>
                 </div>
@@ -191,8 +189,17 @@ export function DashboardOverview() {
 
         <Card
           title="Alert Feed"
-          subtitle="Active and historical alerts from /api/alerts."
-          headerAction={<ArrowUpRight size={17} className="text-slate-400" />}
+          subtitle="Recent operational alerts."
+          headerAction={
+            <button
+              type="button"
+              onClick={() => router.push("/alerts")}
+              className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+              aria-label="Open alerts"
+            >
+              <ArrowUpRight size={17} />
+            </button>
+          }
         >
           <div className="space-y-3">
             {alerts.slice(0, 6).map((alert) => (
@@ -210,7 +217,7 @@ export function DashboardOverview() {
             {alerts.length === 0 && (
               <div className="flex items-center gap-3 rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
                 <Building2 size={18} />
-                No alerts returned by the API.
+                No alerts to review.
               </div>
             )}
           </div>

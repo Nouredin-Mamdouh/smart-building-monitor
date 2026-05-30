@@ -1,5 +1,6 @@
 import type {
   AlertSeverity,
+  AlertSource,
   AlertStatus,
   AlertWithRelations,
   BuildingStats,
@@ -128,6 +129,14 @@ export function alertSeverityVariant(severity: AlertSeverity): BadgeVariant {
 
 export function alertStatusVariant(status: AlertStatus): BadgeVariant {
   return status === "ACTIVE" ? "error" : "inactive";
+}
+
+export function alertSourceLabel(source: AlertSource) {
+  return source === "SYSTEM" ? "System" : "Manual";
+}
+
+export function alertSourceVariant(source: AlertSource): BadgeVariant {
+  return source === "SYSTEM" ? "active" : "neutral";
 }
 
 export function formatDateTime(value: string) {

@@ -9,6 +9,25 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+const alertInclude = {
+  room: true,
+  sensor: true,
+  acknowledgedBy: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+  resolvedBy: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+} as const;
+
 async function validateAlertRelations(roomId: string, sensorId?: string | null) {
   const room = await prisma.room.findUnique({
     where: { id: roomId },
@@ -41,10 +60,7 @@ export async function GET(_request: Request, context: RouteContext) {
   const { id } = await context.params;
   const alert = await prisma.alert.findUnique({
     where: { id },
-    include: {
-      room: true,
-      sensor: true,
-    },
+    include: alertInclude,
   });
 
   if (!alert) {
@@ -82,10 +98,7 @@ export async function PUT(request: Request, context: RouteContext) {
     const alert = await prisma.alert.update({
       where: { id },
       data: parsed.data,
-      include: {
-        room: true,
-        sensor: true,
-      },
+      include: alertInclude,
     });
 
     return ok(alert);

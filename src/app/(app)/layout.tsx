@@ -1,25 +1,24 @@
 import { redirect } from "next/navigation";
-import { auth } from "../../../auth";
 import { AppShell } from "@/components/layout/AppShell";
 import { CurrentUserProvider, type CurrentUser } from "@/components/auth/CurrentUserProvider";
-import { isAppRole } from "@/lib/rbac";
+import { requireUser } from "@/lib/auth-users";
 
 export default async function AuthenticatedAppLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
+  const user = await requireUser();
 
-  if (!session?.user) {
+  if (!user) {
     redirect("/login");
   }
 
   const currentUser: CurrentUser = {
-    id: session.user.id,
-    name: session.user.name ?? "Internal User",
-    email: session.user.email ?? "",
-    role: isAppRole(session.user.role) ? session.user.role : "VIEWER",
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
   };
 
   return (

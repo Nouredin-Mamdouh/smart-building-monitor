@@ -3,8 +3,22 @@ import { prisma } from "@/lib/prisma";
 import { apiError, created, forbidden, unauthorized, validationError } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth-users";
 import { hasPermission } from "@/lib/rbac";
+import { buildRoomSvgId, withNumericSuffix } from "@/lib/room-identifiers";
 import { roomCreateSchema } from "@/lib/validation";
 import { Prisma } from "@prisma/client";
+
+async function createUniqueRoomSvgId(name: string, floor: number) {
+    const base = buildRoomSvgId(name, floor);
+    let candidate = base;
+    let suffix = 2;
+
+    while (await prisma.room.findUnique({ where: { svgId: candidate } })) {
+        candidate = withNumericSuffix(base, suffix);
+        suffix += 1;
+    }
+
+    return candidate;
+}
 
 export async function GET() {
     const user = await requireUser();
@@ -57,8 +71,12 @@ export async function POST(request: Request) {
     }
 
     try {
+        const svgId = await createUniqueRoomSvgId(parsed.data.name, parsed.data.floor);
         const room = await prisma.room.create({
-            data: parsed.data,
+            data: {
+                ...parsed.data,
+                svgId,
+            },
             include: {
                 sensors: true,
                 alerts: {
@@ -75,7 +93,7 @@ export async function POST(request: Request) {
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === "P2002"
         ) {
-            return apiError("A room with this SVG id already exists.", 409);
+            return apiError("A room with this generated location code already exists.", 409);
         }
 
         console.error("POST /api/rooms error:", error);

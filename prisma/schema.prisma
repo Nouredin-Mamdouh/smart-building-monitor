@@ -42,6 +42,11 @@ enum AlertStatus {
   RESOLVED
 }
 
+enum AlertSource {
+  MANUAL
+  SYSTEM
+}
+
 enum UserRole {
   ADMIN
   OPERATOR
@@ -49,13 +54,22 @@ enum UserRole {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         UserRole @default(OPERATOR)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String    @id @default(uuid())
+  name            String
+  email           String    @unique
+  passwordHash    String
+  role            UserRole  @default(OPERATOR)
+  isActive        Boolean   @default(true)
+  deactivatedAt   DateTime?
+  deactivatedById String?
+  passwordUpdatedAt DateTime @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  deactivatedBy     User?   @relation("UserDeactivatedBy", fields: [deactivatedById], references: [id], onDelete: SetNull)
+  deactivatedUsers  User[]  @relation("UserDeactivatedBy")
+  acknowledgedAlerts Alert[] @relation("AlertAcknowledgedBy")
+  resolvedAlerts     Alert[] @relation("AlertResolvedBy")
 }
 
 model Room {
@@ -90,15 +104,22 @@ model Sensor {
 }
 
 model Alert {
-  id         String        @id @default(uuid())
-  message    String
-  severity   AlertSeverity
-  status     AlertStatus   @default(ACTIVE)
-  roomId     String
-  sensorId   String?
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id               String        @id @default(uuid())
+  message          String
+  severity         AlertSeverity
+  status           AlertStatus   @default(ACTIVE)
+  source           AlertSource   @default(MANUAL)
+  roomId           String
+  sensorId         String?
+  acknowledgedAt   DateTime?
+  acknowledgedById String?
+  resolvedAt       DateTime?
+  resolvedById     String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  room       Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  sensor     Sensor?       @relation(fields: [sensorId], references: [id], onDelete: SetNull)
+  room             Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sensor           Sensor?       @relation(fields: [sensorId], references: [id], onDelete: SetNull)
+  acknowledgedBy   User?         @relation("AlertAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  resolvedBy       User?         @relation("AlertResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
 }

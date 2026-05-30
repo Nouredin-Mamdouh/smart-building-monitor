@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Check, CheckCircle2, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCurrentUser } from "@/components/auth/CurrentUserProvider";
 import {
+  acknowledgeAlert,
   createAlert,
   deleteAlert,
   getAlerts,
   getRooms,
   getSensors,
+  resolveAlert,
   updateAlert,
 } from "@/lib/building-api";
 import {
   alertSeverityLabel,
   alertSeverityVariant,
+  alertSourceLabel,
+  alertSourceVariant,
   alertStatusVariant,
   formatDateTime,
 } from "@/lib/building-ui";
@@ -26,6 +30,7 @@ import { Card } from "../common/Card";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { EmptyState } from "../common/EmptyState";
 import { Feedback } from "../common/Feedback";
+import { Toast } from "../common/Toast";
 import { AlertForm } from "./AlertForm";
 
 export function AlertsManager() {
@@ -33,7 +38,6 @@ export function AlertsManager() {
   const canCreateAlert = hasPermission(currentUser.role, "alert:create");
   const canUpdateAlert = hasPermission(currentUser.role, "alert:update");
   const canDeleteAlert = hasPermission(currentUser.role, "alert:delete");
-  const canMutateAlerts = canCreateAlert || canUpdateAlert || canDeleteAlert;
   const [alerts, setAlerts] = useState<AlertWithRelations[]>([]);
   const [rooms, setRooms] = useState<RoomWithRelations[]>([]);
   const [sensors, setSensors] = useState<SensorWithRelations[]>([]);
@@ -45,6 +49,7 @@ export function AlertsManager() {
   const [editingAlert, setEditingAlert] = useState<AlertWithRelations | null>(null);
   const [deletingAlert, setDeletingAlert] = useState<AlertWithRelations | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const dismissToast = useCallback(() => setFeedback(null), []);
 
   useEffect(() => {
     let isMounted = true;
@@ -132,6 +137,46 @@ export function AlertsManager() {
     }
   };
 
+  const handleAcknowledge = async (alert: AlertWithRelations) => {
+    if (!canUpdateAlert) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      const updated = await acknowledgeAlert(alert.id);
+      setAlerts((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setFeedback("Alert acknowledged.");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Failed to acknowledge alert.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResolve = async (alert: AlertWithRelations) => {
+    if (!canUpdateAlert) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    setFeedback(null);
+
+    try {
+      const updated = await resolveAlert(alert.id);
+      setAlerts((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setFeedback("Alert resolved.");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Failed to resolve alert.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (isLoading) {
     return <Card>Loading alerts...</Card>;
   }
@@ -139,10 +184,7 @@ export function AlertsManager() {
   return (
     <div className="space-y-6">
       {error && <Feedback type="error" message={error} />}
-      {feedback && <Feedback type="success" message={feedback} />}
-      {!canMutateAlerts && (
-        <Feedback type="info" message="Your role has read-only access to alerts. Alert changes require an operator or admin." />
-      )}
+      <Toast message={feedback} onDismiss={dismissToast} />
 
       <Card>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -195,15 +237,16 @@ export function AlertsManager() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] border-collapse text-left">
+            <table className="w-full min-w-[1120px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-widest text-slate-400">
                   <th className="px-5 py-4">Alert</th>
                   <th className="px-5 py-4">Room</th>
                   <th className="px-5 py-4 text-center">Severity</th>
+                  <th className="px-5 py-4 text-center">Source</th>
                   <th className="px-5 py-4 text-center">Status</th>
                   <th className="px-5 py-4 text-center">Created</th>
-                  {canMutateAlerts && <th className="px-5 py-4 text-right">Actions</th>}
+                  {(canUpdateAlert || canDeleteAlert) && <th className="px-5 py-4 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -228,16 +271,46 @@ export function AlertsManager() {
                       </Badge>
                     </td>
                     <td className="px-5 py-4 text-center">
+                      <Badge variant={alertSourceVariant(alert.source)}>
+                        {alertSourceLabel(alert.source)}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-4 text-center">
                       <Badge variant={alertStatusVariant(alert.status)} showDot>
                         {alert.status}
                       </Badge>
+                      {alert.acknowledgedAt && alert.status === "ACTIVE" && (
+                        <p className="mt-1 text-[10px] font-semibold text-slate-500">Acknowledged</p>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-center text-xs font-medium text-slate-500">
                       {formatDateTime(alert.createdAt)}
                     </td>
-                    {canMutateAlerts && (
+                    {(canUpdateAlert || canDeleteAlert) && (
                       <td className="px-5 py-4">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {canUpdateAlert && alert.status === "ACTIVE" && !alert.acknowledgedAt && (
+                            <button
+                              type="button"
+                              disabled={isSubmitting}
+                              onClick={() => void handleAcknowledge(alert)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
+                            >
+                              <Check size={14} />
+                              Acknowledge
+                            </button>
+                          )}
+                          {canUpdateAlert && alert.status === "ACTIVE" && (
+                            <button
+                              type="button"
+                              disabled={isSubmitting}
+                              onClick={() => void handleResolve(alert)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-2.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60"
+                            >
+                              <CheckCircle2 size={14} />
+                              Resolve
+                            </button>
+                          )}
                           {canUpdateAlert && (
                             <button
                               type="button"

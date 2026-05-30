@@ -4,6 +4,15 @@ export type SensorType = "TEMPERATURE" | "OCCUPANCY" | "ENERGY";
 export type SensorStatus = "OK" | "WARNING" | "CRITICAL" | "OFFLINE";
 export type AlertSeverity = "LOW" | "MEDIUM" | "HIGH";
 export type AlertStatus = "ACTIVE" | "RESOLVED";
+export type AlertSource = "MANUAL" | "SYSTEM";
+export type UserRole = "ADMIN" | "OPERATOR" | "VIEWER";
+
+export interface UserSummary {
+  id: string;
+  name: string;
+  email: string;
+  role?: UserRole;
+}
 
 export interface Sensor {
   id: string;
@@ -26,8 +35,13 @@ export interface Alert {
   message: string;
   severity: AlertSeverity;
   status: AlertStatus;
+  source: AlertSource;
   roomId: string;
   sensorId: string | null;
+  acknowledgedAt: string | null;
+  acknowledgedById: string | null;
+  resolvedAt: string | null;
+  resolvedById: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -53,6 +67,8 @@ export interface RoomWithRelations extends Room {
 export interface AlertWithRelations extends Alert {
   room: Room;
   sensor: Sensor | null;
+  acknowledgedBy?: UserSummary | null;
+  resolvedBy?: UserSummary | null;
 }
 
 export interface BuildingStats {

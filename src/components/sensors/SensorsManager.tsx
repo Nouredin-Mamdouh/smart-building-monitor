@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useCurrentUser } from "@/components/auth/CurrentUserProvider";
 import { createSensor, deleteSensor, getRooms, getSensors, updateSensor } from "@/lib/building-api";
@@ -12,6 +12,7 @@ import { Card } from "../common/Card";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { EmptyState } from "../common/EmptyState";
 import { Feedback } from "../common/Feedback";
+import { Toast } from "../common/Toast";
 import { SensorForm } from "./SensorForm";
 
 function sensorVariant(status: SensorWithRelations["status"]) {
@@ -26,7 +27,6 @@ export function SensorsManager() {
   const canCreateSensor = hasPermission(currentUser.role, "sensor:create");
   const canUpdateSensor = hasPermission(currentUser.role, "sensor:update");
   const canDeleteSensor = hasPermission(currentUser.role, "sensor:delete");
-  const canMutateSensors = canCreateSensor || canUpdateSensor || canDeleteSensor;
   const [sensors, setSensors] = useState<SensorWithRelations[]>([]);
   const [rooms, setRooms] = useState<RoomWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +37,7 @@ export function SensorsManager() {
   const [editingSensor, setEditingSensor] = useState<SensorWithRelations | null>(null);
   const [deletingSensor, setDeletingSensor] = useState<SensorWithRelations | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const dismissToast = useCallback(() => setFeedback(null), []);
 
   useEffect(() => {
     let isMounted = true;
@@ -130,10 +131,7 @@ export function SensorsManager() {
   return (
     <div className="space-y-6">
       {error && <Feedback type="error" message={error} />}
-      {feedback && <Feedback type="success" message={feedback} />}
-      {!canMutateSensors && (
-        <Feedback type="info" message="Your role has read-only access to sensors. Sensor changes require an admin." />
-      )}
+      <Toast message={feedback} onDismiss={dismissToast} />
 
       <Card>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -196,7 +194,7 @@ export function SensorsManager() {
                   <th className="px-5 py-4 text-center">Type</th>
                   <th className="px-5 py-4 text-center">Value</th>
                   <th className="px-5 py-4 text-center">Status</th>
-                  {canMutateSensors && <th className="px-5 py-4 text-right">Actions</th>}
+                  {(canUpdateSensor || canDeleteSensor) && <th className="px-5 py-4 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -213,7 +211,7 @@ export function SensorsManager() {
                         {sensor.status}
                       </Badge>
                     </td>
-                    {canMutateSensors && (
+                    {(canUpdateSensor || canDeleteSensor) && (
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-2">
                           {canUpdateSensor && (

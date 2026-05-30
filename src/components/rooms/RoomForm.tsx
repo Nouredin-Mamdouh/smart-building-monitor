@@ -8,7 +8,6 @@ import { FormField, SelectInput, TextInput } from "../common/FormField";
 const defaultValues: RoomFormInput = {
   name: "",
   floor: 1,
-  svgId: "",
   temperature: 22,
   occupancyStatus: "VACANT",
   energyConsumption: 0,
@@ -31,7 +30,6 @@ export function RoomForm({
       ? {
           name: room.name,
           floor: room.floor,
-          svgId: room.svgId,
           temperature: room.temperature,
           occupancyStatus: room.occupancyStatus,
           energyConsumption: room.energyConsumption,
@@ -61,13 +59,6 @@ export function RoomForm({
             required
             value={values.name}
             onChange={(event) => setValue("name", event.target.value)}
-          />
-        </FormField>
-        <FormField label="SVG id">
-          <TextInput
-            required
-            value={values.svgId}
-            onChange={(event) => setValue("svgId", event.target.value)}
           />
         </FormField>
         <FormField label="Floor">
