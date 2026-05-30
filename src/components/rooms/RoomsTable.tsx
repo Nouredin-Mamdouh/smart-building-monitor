@@ -5,6 +5,7 @@ import { ArrowUpDown, Eye, Pencil, Plus, RefreshCcw, Search, Trash2 } from "luci
 import { useCurrentUser } from "@/components/auth/CurrentUserProvider";
 import { createRoom, deleteRoom, getRooms, updateRoom } from "@/lib/building-api";
 import {
+  getPrimaryOperationalAlerts,
   occupancyBadgeVariant,
   occupancyLabel,
   statusBadgeVariant,
@@ -347,7 +348,7 @@ export function RoomsTable() {
                       {room.sensors.length}
                     </td>
                     <td className="px-5 py-4 text-center font-mono font-semibold text-slate-700">
-                      {room.alerts.length}
+                      {getPrimaryOperationalAlerts(room.alerts).length}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex justify-end gap-2">

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError, forbidden, noContent, ok, unauthorized, validationError } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth-users";
 import { hasPermission } from "@/lib/rbac";
+import { resolveSensorSystemAlerts, syncRoomOperationalStatus, syncSensorSystemAlerts } from "@/lib/system-alerts";
 import { sensorUpdateSchema } from "@/lib/validation";
 import { Prisma } from "@prisma/client";
 
@@ -59,14 +60,36 @@ export async function PUT(request: Request, context: RouteContext) {
     return apiError("Selected room does not exist.", 404);
   }
 
+  const existingSensor = await prisma.sensor.findUnique({
+    where: { id },
+  });
+
+  if (!existingSensor) {
+    return apiError("Sensor not found.", 404);
+  }
+
   try {
-    const sensor = await prisma.sensor.update({
+    await prisma.sensor.update({
       where: { id },
       data: parsed.data,
+    });
+
+    await syncSensorSystemAlerts(id);
+
+    if (existingSensor.roomId !== parsed.data.roomId) {
+      await syncRoomOperationalStatus(existingSensor.roomId);
+    }
+
+    const sensor = await prisma.sensor.findUnique({
+      where: { id },
       include: {
         room: true,
       },
     });
+
+    if (!sensor) {
+      return apiError("Sensor not found.", 404);
+    }
 
     return ok(sensor);
   } catch (error) {
@@ -93,9 +116,19 @@ export async function DELETE(_request: Request, context: RouteContext) {
   const { id } = await context.params;
 
   try {
+    const existingSensor = await prisma.sensor.findUnique({
+      where: { id },
+    });
+
+    if (!existingSensor) {
+      return apiError("Sensor not found.", 404);
+    }
+
+    await resolveSensorSystemAlerts(id);
     await prisma.sensor.delete({
       where: { id },
     });
+    await syncRoomOperationalStatus(existingSensor.roomId);
 
     return noContent();
   } catch (error) {

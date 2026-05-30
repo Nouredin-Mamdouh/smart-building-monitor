@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, CheckCircle2, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Check, CheckCircle2, ChevronDown, ChevronRight, ExternalLink, Info, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCurrentUser } from "@/components/auth/CurrentUserProvider";
 import {
@@ -21,6 +21,8 @@ import {
   alertSourceVariant,
   alertStatusVariant,
   formatDateTime,
+  groupOperationalAlerts,
+  operationalAlertCategoryLabel,
 } from "@/lib/building-ui";
 import { hasPermission } from "@/lib/rbac";
 import type { AlertFormInput } from "@/lib/validation";
@@ -49,6 +51,7 @@ export function AlertsManager() {
   const [editingAlert, setEditingAlert] = useState<AlertWithRelations | null>(null);
   const [deletingAlert, setDeletingAlert] = useState<AlertWithRelations | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const dismissToast = useCallback(() => setFeedback(null), []);
 
   useEffect(() => {
@@ -86,8 +89,28 @@ export function AlertsManager() {
 
     return alerts.filter((alert) => alert.status === statusFilter);
   }, [alerts, statusFilter]);
+  const visibleAlertGroups = useMemo(() => groupOperationalAlerts(visibleAlerts), [visibleAlerts]);
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+
+      return next;
+    });
+  };
 
   const handleSubmit = async (input: AlertFormInput) => {
+    if (editingAlert?.source === "SYSTEM") {
+      setError("System alerts can only be acknowledged or resolved.");
+      return;
+    }
+
     if ((editingAlert && !canUpdateAlert) || (!editingAlert && !canCreateAlert)) {
       setError("Your role can view alerts but cannot save alert changes.");
       return;
@@ -181,13 +204,152 @@ export function AlertsManager() {
     return <Card>Loading alerts...</Card>;
   }
 
+  const renderAlertRow = (
+    alert: AlertWithRelations,
+    {
+      groupLabel,
+      groupId,
+      supportingCount = 0,
+      isExpanded = false,
+      isSupportingSignal = false,
+    }: {
+      groupLabel?: string;
+      groupId?: string;
+      supportingCount?: number;
+      isExpanded?: boolean;
+      isSupportingSignal?: boolean;
+    } = {},
+  ) => (
+    <tr
+      key={`${isSupportingSignal ? "supporting" : "primary"}-${alert.id}`}
+      className={`transition hover:bg-slate-50 ${isSupportingSignal ? "bg-slate-50/60 text-xs" : ""}`}
+    >
+      <td className={isSupportingSignal ? "py-2 pl-10 pr-5" : "px-5 py-4"}>
+        {isSupportingSignal && (
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Supporting signal</p>
+        )}
+        {!isSupportingSignal && groupLabel && (
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-teal-700">{groupLabel}</p>
+        )}
+        <p className={`font-semibold leading-6 ${isSupportingSignal ? "text-slate-700" : "text-slate-900"}`}>
+          {alert.message}
+        </p>
+        <p className="mt-1 text-xs text-slate-500">{alert.sensor?.name ?? "No sensor attached"}</p>
+        {!isSupportingSignal && supportingCount > 0 && (
+          <button
+            type="button"
+            onClick={() => groupId && toggleGroup(groupId)}
+            className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+          >
+            {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            {supportingCount} supporting signal{supportingCount === 1 ? "" : "s"}
+          </button>
+        )}
+      </td>
+      <td className={isSupportingSignal ? "px-5 py-2" : "px-5 py-4"}>
+        <Link
+          href={`/floor-plan?roomId=${encodeURIComponent(alert.roomId)}`}
+          className="inline-flex items-center gap-1 font-semibold text-teal-700 hover:text-teal-800"
+        >
+          {alert.room.name}
+          <ExternalLink size={13} />
+        </Link>
+      </td>
+      <td className={isSupportingSignal ? "px-5 py-2 text-center" : "px-5 py-4 text-center"}>
+        <Badge variant={alertSeverityVariant(alert.severity)}>
+          {alertSeverityLabel(alert.severity)}
+        </Badge>
+      </td>
+      <td className={isSupportingSignal ? "px-5 py-2 text-center" : "px-5 py-4 text-center"}>
+        <Badge variant={alertSourceVariant(alert.source)}>
+          {alertSourceLabel(alert.source)}
+        </Badge>
+      </td>
+      <td className={isSupportingSignal ? "px-5 py-2 text-center" : "px-5 py-4 text-center"}>
+        <Badge variant={alertStatusVariant(alert.status)} showDot>
+          {alert.status}
+        </Badge>
+        {alert.acknowledgedAt && alert.status === "ACTIVE" && (
+          <p className="mt-1 text-[10px] font-semibold text-slate-500">Acknowledged</p>
+        )}
+      </td>
+      <td className={isSupportingSignal ? "px-5 py-2 text-center text-xs font-medium text-slate-400" : "px-5 py-4 text-center text-xs font-medium text-slate-500"}>
+        {formatDateTime(alert.createdAt)}
+      </td>
+      {(canUpdateAlert || canDeleteAlert) && (
+        <td className={isSupportingSignal ? "px-5 py-2" : "px-5 py-4"}>
+          <div className="flex flex-wrap justify-end gap-2">
+            {canUpdateAlert && alert.status === "ACTIVE" && !alert.acknowledgedAt && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => void handleAcknowledge(alert)}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
+              >
+                <Check size={14} />
+                Acknowledge
+              </button>
+            )}
+            {canUpdateAlert && alert.status === "ACTIVE" && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => void handleResolve(alert)}
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-2.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60"
+              >
+                <CheckCircle2 size={14} />
+                Resolve
+              </button>
+            )}
+            {canUpdateAlert && alert.source === "MANUAL" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingAlert(alert);
+                  setIsFormOpen(true);
+                }}
+                className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                aria-label={`Edit alert for ${alert.room.name}`}
+              >
+                <Pencil size={15} />
+              </button>
+            )}
+            {canDeleteAlert && alert.source === "MANUAL" && (
+              <button
+                type="button"
+                onClick={() => setDeletingAlert(alert)}
+                className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50"
+                aria-label={`Delete alert for ${alert.room.name}`}
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
+            {alert.source === "SYSTEM" && (
+              <span className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-semibold text-slate-500">
+                System managed
+              </span>
+            )}
+          </div>
+        </td>
+      )}
+    </tr>
+  );
+
   return (
     <div className="space-y-6">
       {error && <Feedback type="error" message={error} />}
       <Toast message={feedback} onDismiss={dismissToast} />
 
       <Card>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start gap-2 rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-xs font-medium leading-5 text-sky-800">
+            <Info size={15} className="mt-0.5 shrink-0" />
+            <p>
+              System alerts are generated from building readings and can be acknowledged or resolved.
+              Manual alerts can also be edited or deleted.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as AlertStatus | "ALL")}
@@ -210,6 +372,7 @@ export function AlertsManager() {
               Add alert
             </button>
           )}
+          </div>
         </div>
       </Card>
 
@@ -230,7 +393,7 @@ export function AlertsManager() {
       )}
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        {visibleAlerts.length === 0 ? (
+        {visibleAlertGroups.length === 0 ? (
           <EmptyState
             title="No alerts found"
             message={canCreateAlert ? "Create an alert or change the status filter." : "Change the status filter to inspect alerts."}
@@ -250,94 +413,21 @@ export function AlertsManager() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
-                {visibleAlerts.map((alert) => (
-                  <tr key={alert.id} className="transition hover:bg-slate-50">
-                    <td className="px-5 py-4">
-                      <p className="font-semibold leading-6 text-slate-900">{alert.message}</p>
-                      <p className="mt-1 text-xs text-slate-500">{alert.sensor?.name ?? "No sensor attached"}</p>
-                    </td>
-                    <td className="px-5 py-4">
-                      <Link
-                        href={`/floor-plan?roomId=${encodeURIComponent(alert.roomId)}`}
-                        className="inline-flex items-center gap-1 font-semibold text-teal-700 hover:text-teal-800"
-                      >
-                        {alert.room.name}
-                        <ExternalLink size={13} />
-                      </Link>
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      <Badge variant={alertSeverityVariant(alert.severity)}>
-                        {alertSeverityLabel(alert.severity)}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      <Badge variant={alertSourceVariant(alert.source)}>
-                        {alertSourceLabel(alert.source)}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-4 text-center">
-                      <Badge variant={alertStatusVariant(alert.status)} showDot>
-                        {alert.status}
-                      </Badge>
-                      {alert.acknowledgedAt && alert.status === "ACTIVE" && (
-                        <p className="mt-1 text-[10px] font-semibold text-slate-500">Acknowledged</p>
+                {visibleAlertGroups.map((group) => (
+                  <Fragment key={group.id}>
+                    {renderAlertRow(group.primary, {
+                      groupLabel: operationalAlertCategoryLabel(group.category),
+                      groupId: group.id,
+                      supportingCount: group.diagnostics.length,
+                      isExpanded: expandedGroups.has(group.id),
+                    })}
+                    {expandedGroups.has(group.id) &&
+                      group.diagnostics.map((alert) =>
+                        renderAlertRow(alert, {
+                          isSupportingSignal: true,
+                        }),
                       )}
-                    </td>
-                    <td className="px-5 py-4 text-center text-xs font-medium text-slate-500">
-                      {formatDateTime(alert.createdAt)}
-                    </td>
-                    {(canUpdateAlert || canDeleteAlert) && (
-                      <td className="px-5 py-4">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          {canUpdateAlert && alert.status === "ACTIVE" && !alert.acknowledgedAt && (
-                            <button
-                              type="button"
-                              disabled={isSubmitting}
-                              onClick={() => void handleAcknowledge(alert)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60"
-                            >
-                              <Check size={14} />
-                              Acknowledge
-                            </button>
-                          )}
-                          {canUpdateAlert && alert.status === "ACTIVE" && (
-                            <button
-                              type="button"
-                              disabled={isSubmitting}
-                              onClick={() => void handleResolve(alert)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-2.5 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60"
-                            >
-                              <CheckCircle2 size={14} />
-                              Resolve
-                            </button>
-                          )}
-                          {canUpdateAlert && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingAlert(alert);
-                                setIsFormOpen(true);
-                              }}
-                              className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-                              aria-label={`Edit alert for ${alert.room.name}`}
-                            >
-                              <Pencil size={15} />
-                            </button>
-                          )}
-                          {canDeleteAlert && (
-                            <button
-                              type="button"
-                              onClick={() => setDeletingAlert(alert)}
-                              className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50"
-                              aria-label={`Delete alert for ${alert.room.name}`}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>

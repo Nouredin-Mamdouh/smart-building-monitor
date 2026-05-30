@@ -1,4 +1,5 @@
 import { prisma } from "../src/lib/prisma";
+import { syncAllSystemAlerts } from "../src/lib/system-alerts";
 import bcrypt from "bcryptjs";
 import type { UserRole } from "@prisma/client";
 
@@ -176,25 +177,16 @@ async function main() {
     await prisma.alert.createMany({
         data: [
             {
-                message: "Room 102 temperature is above normal range.",
-                severity: "MEDIUM",
+                message: "Facilities reported intermittent airflow noise.",
+                severity: "LOW",
                 status: "ACTIVE",
-                roomId: room102.id,
-            },
-            {
-                message: "Room 103 temperature is critical.",
-                severity: "HIGH",
-                status: "ACTIVE",
-                roomId: room103.id,
-            },
-            {
-                message: "Room 103 energy consumption is unusually high.",
-                severity: "HIGH",
-                status: "ACTIVE",
-                roomId: room103.id,
+                source: "MANUAL",
+                roomId: room202.id,
             },
         ],
     });
+
+    await syncAllSystemAlerts();
 
     console.log("Seed completed successfully.");
     console.log({ sensorsCreated: sensors.count });

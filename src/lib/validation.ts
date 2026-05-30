@@ -39,10 +39,7 @@ const alertMutationSchema = z.object({
   sensorId: z.string().uuid().nullable().optional(),
 });
 
-export const alertCreateSchema = alertMutationSchema.extend({
-  source: z.enum(["MANUAL", "SYSTEM"]).optional().default("MANUAL"),
-});
-
+export const alertCreateSchema = alertMutationSchema;
 export const alertUpdateSchema = alertMutationSchema;
 
 export const userCreateSchema = z.object({
@@ -70,6 +67,10 @@ export const profileUpdateSchema = z.object({
 export const profilePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required."),
   newPassword: passwordSchema,
+  confirmNewPassword: z.string().min(1, "Confirm your new password."),
+}).refine((value) => value.newPassword === value.confirmNewPassword, {
+  message: "New passwords must match.",
+  path: ["confirmNewPassword"],
 });
 
 export type RoomFormInput = z.infer<typeof roomCreateSchema>;

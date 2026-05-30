@@ -4,6 +4,7 @@ import { apiError, created, forbidden, unauthorized, validationError } from "@/l
 import { requireUser } from "@/lib/auth-users";
 import { hasPermission } from "@/lib/rbac";
 import { buildRoomSvgId, withNumericSuffix } from "@/lib/room-identifiers";
+import { syncRoomSystemAlerts } from "@/lib/system-alerts";
 import { roomCreateSchema } from "@/lib/validation";
 import { Prisma } from "@prisma/client";
 
@@ -72,10 +73,18 @@ export async function POST(request: Request) {
 
     try {
         const svgId = await createUniqueRoomSvgId(parsed.data.name, parsed.data.floor);
-        const room = await prisma.room.create({
+        const createdRoom = await prisma.room.create({
             data: {
                 ...parsed.data,
                 svgId,
+            },
+        });
+
+        await syncRoomSystemAlerts(createdRoom.id);
+
+        const room = await prisma.room.findUnique({
+            where: {
+                id: createdRoom.id,
             },
             include: {
                 sensors: true,
@@ -86,6 +95,10 @@ export async function POST(request: Request) {
                 },
             },
         });
+
+        if (!room) {
+            return apiError("Failed to load created room.", 500);
+        }
 
         return created(room);
     } catch (error) {

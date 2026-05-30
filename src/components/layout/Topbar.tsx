@@ -1,15 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Bell, Calendar, CheckCircle2, Menu, ShieldAlert, UserCircle } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Calendar, Menu, UserCircle } from "lucide-react";
 import type { CurrentUser } from "@/components/auth/CurrentUserProvider";
-import { alertSeverityLabel, alertSeverityVariant, formatDateTime } from "@/lib/building-ui";
 import { roleMeta } from "@/lib/rbac";
 import type { AlertWithRelations } from "@/types/building";
-import { Badge } from "../common/Badge";
 import { LogoutButton } from "../auth/LogoutButton";
+import { AlertNotificationBell } from "./AlertNotificationBell";
 
 function screenCopy(pathname: string) {
   switch (pathname) {
@@ -69,8 +67,6 @@ export function Topbar({
   currentUser: CurrentUser;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [showAlerts, setShowAlerts] = useState(false);
   const copy = screenCopy(pathname);
   const currentRoleMeta = roleMeta[currentUser.role];
 
@@ -108,69 +104,7 @@ export function Topbar({
           </span>
         </Link>
 
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setShowAlerts((value) => !value)}
-            className={`relative rounded-lg border p-2 transition ${
-              activeAlerts.length > 0
-                ? "border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
-                : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
-            }`}
-            aria-label="Open active alerts"
-          >
-            <Bell size={18} />
-            {activeAlerts.length > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-                {activeAlerts.length}
-              </span>
-            )}
-          </button>
-
-          {showAlerts && (
-            <div className="absolute right-0 mt-2 w-80 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
-              <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 text-white">
-                <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
-                  <ShieldAlert size={16} className="text-rose-300" />
-                  Active Alerts
-                </span>
-                <Badge variant={activeAlerts.length > 0 ? "error" : "success"}>{activeAlerts.length}</Badge>
-              </div>
-              <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
-                {activeAlerts.length === 0 ? (
-                  <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
-                    <CheckCircle2 size={26} className="text-emerald-500" />
-                    <p className="text-sm font-semibold text-slate-800">No active alerts</p>
-                    <p className="text-xs text-slate-500">All known rooms are currently clear.</p>
-                  </div>
-                ) : (
-                  activeAlerts.map((alert) => (
-                    <button
-                      type="button"
-                      key={alert.id}
-                      onClick={() => {
-                        router.push(`/floor-plan?roomId=${encodeURIComponent(alert.roomId)}`);
-                        setShowAlerts(false);
-                      }}
-                      className="block w-full px-4 py-3 text-left transition hover:bg-slate-50"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <Badge variant={alertSeverityVariant(alert.severity)}>
-                          {alertSeverityLabel(alert.severity)}
-                        </Badge>
-                        <span className="text-[10px] font-medium text-slate-400">
-                          {formatDateTime(alert.createdAt)}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm font-semibold text-slate-900">{alert.room.name}</p>
-                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{alert.message}</p>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        <AlertNotificationBell activeAlerts={activeAlerts} />
 
         <LogoutButton />
       </div>

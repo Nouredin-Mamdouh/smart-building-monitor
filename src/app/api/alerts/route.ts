@@ -3,7 +3,27 @@ import { prisma } from "@/lib/prisma";
 import { apiError, created, forbidden, unauthorized, validationError } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth-users";
 import { hasPermission } from "@/lib/rbac";
+import { syncRoomOperationalStatus } from "@/lib/system-alerts";
 import { alertCreateSchema } from "@/lib/validation";
+
+const alertInclude = {
+    room: true,
+    sensor: true,
+    acknowledgedBy: {
+        select: {
+            id: true,
+            name: true,
+            email: true,
+        },
+    },
+    resolvedBy: {
+        select: {
+            id: true,
+            name: true,
+            email: true,
+        },
+    },
+} as const;
 
 export async function GET() {
     const user = await requireUser();
@@ -14,24 +34,7 @@ export async function GET() {
 
     try {
         const alerts = await prisma.alert.findMany({
-            include: {
-                room: true,
-                sensor: true,
-                acknowledgedBy: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
-                resolvedBy: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
-            },
+            include: alertInclude,
             orderBy: {
                 createdAt: "desc",
             },
@@ -87,27 +90,25 @@ export async function POST(request: Request) {
     }
 
     try {
-        const alert = await prisma.alert.create({
-            data: parsed.data,
-            include: {
-                room: true,
-                sensor: true,
-                acknowledgedBy: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
-                resolvedBy: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
+        const createdAlert = await prisma.alert.create({
+            data: {
+                ...parsed.data,
+                source: "MANUAL",
             },
         });
+
+        await syncRoomOperationalStatus(createdAlert.roomId);
+
+        const alert = await prisma.alert.findUnique({
+            where: {
+                id: createdAlert.id,
+            },
+            include: alertInclude,
+        });
+
+        if (!alert) {
+            return apiError("Failed to load created alert.", 500);
+        }
 
         return created(alert);
     } catch (error) {

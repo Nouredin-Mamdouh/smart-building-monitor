@@ -23,6 +23,12 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function emitAlertActivityChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("alert-activity-changed"));
+  }
+}
+
 export function getRooms() {
   return requestJson<RoomWithRelations[]>("/api/rooms");
 }
@@ -39,74 +45,101 @@ export function getSensors() {
   return requestJson<SensorWithRelations[]>("/api/sensors");
 }
 
-export function createRoom(input: RoomFormInput) {
-  return requestJson<RoomWithRelations>("/api/rooms", {
+export async function createRoom(input: RoomFormInput) {
+  const room = await requestJson<RoomWithRelations>("/api/rooms", {
     method: "POST",
     body: JSON.stringify(input),
   });
+
+  emitAlertActivityChanged();
+  return room;
 }
 
-export function updateRoom(id: string, input: RoomFormInput) {
-  return requestJson<RoomWithRelations>(`/api/rooms/${id}`, {
+export async function updateRoom(id: string, input: RoomFormInput) {
+  const room = await requestJson<RoomWithRelations>(`/api/rooms/${id}`, {
     method: "PUT",
     body: JSON.stringify(input),
   });
+
+  emitAlertActivityChanged();
+  return room;
 }
 
-export function deleteRoom(id: string) {
-  return requestJson<void>(`/api/rooms/${id}`, {
+export async function deleteRoom(id: string) {
+  await requestJson<void>(`/api/rooms/${id}`, {
     method: "DELETE",
   });
+  emitAlertActivityChanged();
 }
 
-export function createSensor(input: SensorFormInput) {
-  return requestJson<SensorWithRelations>("/api/sensors", {
+export async function createSensor(input: SensorFormInput) {
+  const sensor = await requestJson<SensorWithRelations>("/api/sensors", {
     method: "POST",
     body: JSON.stringify(input),
   });
+
+  emitAlertActivityChanged();
+  return sensor;
 }
 
-export function updateSensor(id: string, input: SensorFormInput) {
-  return requestJson<SensorWithRelations>(`/api/sensors/${id}`, {
+export async function updateSensor(id: string, input: SensorFormInput) {
+  const sensor = await requestJson<SensorWithRelations>(`/api/sensors/${id}`, {
     method: "PUT",
     body: JSON.stringify(input),
   });
+
+  emitAlertActivityChanged();
+  return sensor;
 }
 
-export function deleteSensor(id: string) {
-  return requestJson<void>(`/api/sensors/${id}`, {
+export async function deleteSensor(id: string) {
+  await requestJson<void>(`/api/sensors/${id}`, {
     method: "DELETE",
   });
+  emitAlertActivityChanged();
 }
 
-export function createAlert(input: AlertFormInput) {
-  return requestJson<AlertWithRelations>("/api/alerts", {
+export async function createAlert(input: AlertFormInput) {
+  const alert = await requestJson<AlertWithRelations>("/api/alerts", {
     method: "POST",
     body: JSON.stringify(input),
   });
+
+  emitAlertActivityChanged();
+  return alert;
 }
 
-export function updateAlert(id: string, input: AlertFormInput) {
-  return requestJson<AlertWithRelations>(`/api/alerts/${id}`, {
+export async function updateAlert(id: string, input: AlertFormInput) {
+  const alert = await requestJson<AlertWithRelations>(`/api/alerts/${id}`, {
     method: "PUT",
     body: JSON.stringify(input),
   });
+
+  emitAlertActivityChanged();
+  return alert;
 }
 
-export function acknowledgeAlert(id: string) {
-  return requestJson<AlertWithRelations>(`/api/alerts/${id}/acknowledge`, {
+export async function acknowledgeAlert(id: string) {
+  const alert = await requestJson<AlertWithRelations>(`/api/alerts/${id}/acknowledge`, {
     method: "POST",
   });
+
+  emitAlertActivityChanged();
+  return alert;
 }
 
-export function resolveAlert(id: string) {
-  return requestJson<AlertWithRelations>(`/api/alerts/${id}/resolve`, {
+export async function resolveAlert(id: string) {
+  const alert = await requestJson<AlertWithRelations>(`/api/alerts/${id}/resolve`, {
     method: "POST",
   });
+
+  emitAlertActivityChanged();
+  return alert;
 }
 
-export function deleteAlert(id: string) {
-  return requestJson<void>(`/api/alerts/${id}`, {
+export async function deleteAlert(id: string) {
+  await requestJson<void>(`/api/alerts/${id}`, {
     method: "DELETE",
   });
+  emitAlertActivityChanged();
 }

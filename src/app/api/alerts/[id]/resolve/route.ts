@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError, forbidden, ok, unauthorized } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth-users";
 import { hasPermission } from "@/lib/rbac";
+import { syncRoomOperationalStatus } from "@/lib/system-alerts";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -51,7 +52,7 @@ export async function POST(_request: Request, context: RouteContext) {
   }
 
   const now = new Date();
-  const alert = await prisma.alert.update({
+  await prisma.alert.update({
     where: { id },
     data: {
       status: "RESOLVED",
@@ -60,8 +61,18 @@ export async function POST(_request: Request, context: RouteContext) {
       resolvedAt: now,
       resolvedById: user.id,
     },
+  });
+
+  await syncRoomOperationalStatus(existingAlert.roomId);
+
+  const alert = await prisma.alert.findUnique({
+    where: { id },
     include: alertInclude,
   });
+
+  if (!alert) {
+    return apiError("Alert not found.", 404);
+  }
 
   return ok(alert);
 }

@@ -5,6 +5,7 @@ export type SensorStatus = "OK" | "WARNING" | "CRITICAL" | "OFFLINE";
 export type AlertSeverity = "LOW" | "MEDIUM" | "HIGH";
 export type AlertStatus = "ACTIVE" | "RESOLVED";
 export type AlertSource = "MANUAL" | "SYSTEM";
+export type AlertRule = "ROOM_TEMPERATURE" | "ROOM_ENERGY" | "SENSOR_TEMPERATURE" | "SENSOR_ENERGY" | "SENSOR_STATUS";
 export type UserRole = "ADMIN" | "OPERATOR" | "VIEWER";
 
 export interface UserSummary {
@@ -36,6 +37,8 @@ export interface Alert {
   severity: AlertSeverity;
   status: AlertStatus;
   source: AlertSource;
+  systemKey: string | null;
+  systemRule: AlertRule | null;
   roomId: string;
   sensorId: string | null;
   acknowledgedAt: string | null;

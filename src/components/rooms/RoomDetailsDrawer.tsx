@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Thermometer, X, Zap } from "lucide-react";
 import { getRoom } from "@/lib/building-api";
 import {
   alertSeverityLabel,
   alertSeverityVariant,
+  alertSourceLabel,
+  alertSourceVariant,
   alertStatusVariant,
   formatDateTime,
+  groupOperationalAlerts,
   occupancyBadgeVariant,
   occupancyLabel,
+  operationalAlertCategoryLabel,
   statusBadgeVariant,
   statusLabel,
 } from "@/lib/building-ui";
@@ -53,6 +57,9 @@ export function RoomDetailsDrawer({
       isMounted = false;
     };
   }, [roomId]);
+
+  const alertGroups = useMemo(() => (room ? groupOperationalAlerts(room.alerts) : []), [room]);
+  const supportingSignals = useMemo(() => alertGroups.flatMap((group) => group.diagnostics), [alertGroups]);
 
   return (
     <div className="fixed inset-0 z-40 bg-slate-950/30">
@@ -128,18 +135,24 @@ export function RoomDetailsDrawer({
               </section>
 
               <section className="rounded-lg border border-slate-200 bg-white p-4">
-                <h3 className="text-sm font-bold text-slate-950">Alerts</h3>
+                <h3 className="text-sm font-bold text-slate-950">Operational alerts</h3>
                 <div className="mt-3 space-y-3">
-                  {room.alerts.length === 0 ? (
+                  {alertGroups.length === 0 ? (
                     <p className="text-sm text-slate-500">No alerts are linked to this room.</p>
                   ) : (
-                    room.alerts.map((alert) => (
-                      <div key={alert.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                    alertGroups.map((group) => {
+                      const alert = group.primary;
+
+                      return (
+                      <div key={group.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant={alertSeverityVariant(alert.severity)}>
                             {alertSeverityLabel(alert.severity)}
                           </Badge>
                           <Badge variant={alertStatusVariant(alert.status)}>{alert.status}</Badge>
+                          <Badge variant={alertSourceVariant(alert.source)}>
+                            {alertSourceLabel(alert.source)}
+                          </Badge>
                           {alert.acknowledgedAt && (
                             <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500">
                               <AlertTriangle size={12} />
@@ -147,13 +160,45 @@ export function RoomDetailsDrawer({
                             </span>
                           )}
                         </div>
+                        <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {operationalAlertCategoryLabel(group.category)}
+                        </p>
                         <p className="mt-2 text-sm font-semibold leading-6 text-slate-900">{alert.message}</p>
                         <p className="mt-1 text-xs text-slate-500">{formatDateTime(alert.createdAt)}</p>
+                        {group.diagnostics.length > 0 && (
+                          <p className="mt-2 text-xs font-semibold text-slate-500">
+                            {group.diagnostics.length} supporting signal{group.diagnostics.length === 1 ? "" : "s"}
+                          </p>
+                        )}
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </section>
+
+              {supportingSignals.length > 0 && (
+                <section className="rounded-lg border border-slate-200 bg-white p-4">
+                  <h3 className="text-sm font-bold text-slate-950">Supporting signals</h3>
+                  <div className="mt-3 divide-y divide-slate-100">
+                    {supportingSignals.map((alert) => (
+                      <div key={alert.id} className="py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={alertSeverityVariant(alert.severity)}>
+                            {alertSeverityLabel(alert.severity)}
+                          </Badge>
+                          <Badge variant={alertStatusVariant(alert.status)}>{alert.status}</Badge>
+                          <Badge variant={alertSourceVariant(alert.source)}>
+                            {alertSourceLabel(alert.source)}
+                          </Badge>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-slate-700">{alert.message}</p>
+                        <p className="mt-1 text-xs text-slate-500">{formatDateTime(alert.createdAt)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
             </>
           )}
         </div>

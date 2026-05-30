@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError, forbidden, noContent, ok, unauthorized, validationError } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth-users";
 import { hasPermission } from "@/lib/rbac";
+import { syncRoomSystemAlerts } from "@/lib/system-alerts";
 import { roomUpdateSchema } from "@/lib/validation";
 import { Prisma } from "@prisma/client";
 
@@ -55,9 +56,15 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 
   try {
-    const room = await prisma.room.update({
+    await prisma.room.update({
       where: { id },
       data: parsed.data,
+    });
+
+    await syncRoomSystemAlerts(id);
+
+    const room = await prisma.room.findUnique({
+      where: { id },
       include: {
         sensors: true,
         alerts: {
@@ -67,6 +74,10 @@ export async function PUT(request: Request, context: RouteContext) {
         },
       },
     });
+
+    if (!room) {
+      return apiError("Room not found.", 404);
+    }
 
     return ok(room);
   } catch (error) {

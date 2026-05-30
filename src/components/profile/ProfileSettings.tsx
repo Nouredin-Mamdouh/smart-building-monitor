@@ -26,6 +26,7 @@ export function ProfileSettings() {
   const [passwordValues, setPasswordValues] = useState<ProfilePasswordInput>({
     currentPassword: "",
     newPassword: "",
+    confirmNewPassword: "",
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,6 +80,12 @@ export function ProfileSettings() {
   };
 
   const handlePasswordSubmit = async (input: ProfilePasswordInput) => {
+    if (input.newPassword !== input.confirmNewPassword) {
+      setFeedback(null);
+      setError("New passwords must match.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     setFeedback(null);
@@ -89,12 +96,14 @@ export function ProfileSettings() {
       setPasswordValues({
         currentPassword: "",
         newPassword: "",
+        confirmNewPassword: "",
       });
       setFeedback("Password changed.");
     } catch (requestError) {
       setPasswordValues({
         currentPassword: "",
         newPassword: "",
+        confirmNewPassword: "",
       });
       setError(requestError instanceof Error ? requestError.message : "Failed to change password.");
     } finally {
@@ -114,7 +123,7 @@ export function ProfileSettings() {
       <Toast message={feedback} onDismiss={dismissToast} />
 
       {profile && role && (
-        <Card title="Account" subtitle="Your current sign-in and access information.">
+        <Card title="Account Details" subtitle="Read-only sign-in and access information.">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Email</p>
@@ -138,7 +147,7 @@ export function ProfileSettings() {
         </Card>
       )}
 
-      <Card title="Profile" subtitle="Update your display name.">
+      <Card title="Profile" subtitle="Update the name shown in the app.">
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -162,7 +171,7 @@ export function ProfileSettings() {
         </form>
       </Card>
 
-      <Card title="Password" subtitle="Change your password.">
+      <Card title="Security" subtitle="Change your password with confirmation.">
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -170,7 +179,7 @@ export function ProfileSettings() {
           }}
           className="space-y-4"
         >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <FormField label="Current password">
               <TextInput
                 required
@@ -193,6 +202,19 @@ export function ProfileSettings() {
                   setPasswordValues((current) => ({
                     ...current,
                     newPassword: event.target.value,
+                  }))
+                }
+              />
+            </FormField>
+            <FormField label="Confirm new password">
+              <TextInput
+                required
+                type="password"
+                value={passwordValues.confirmNewPassword}
+                onChange={(event) =>
+                  setPasswordValues((current) => ({
+                    ...current,
+                    confirmNewPassword: event.target.value,
                   }))
                 }
               />

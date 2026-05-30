@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError, created, forbidden, unauthorized, validationError } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth-users";
 import { hasPermission } from "@/lib/rbac";
+import { syncSensorSystemAlerts } from "@/lib/system-alerts";
 import { sensorCreateSchema } from "@/lib/validation";
 
 export async function GET() {
@@ -60,12 +61,24 @@ export async function POST(request: Request) {
     }
 
     try {
-        const sensor = await prisma.sensor.create({
+        const createdSensor = await prisma.sensor.create({
             data: parsed.data,
+        });
+
+        await syncSensorSystemAlerts(createdSensor.id);
+
+        const sensor = await prisma.sensor.findUnique({
+            where: {
+                id: createdSensor.id,
+            },
             include: {
                 room: true,
             },
         });
+
+        if (!sensor) {
+            return apiError("Failed to load created sensor.", 500);
+        }
 
         return created(sensor);
     } catch (error) {

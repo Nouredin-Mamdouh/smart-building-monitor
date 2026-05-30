@@ -1,13 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, Layers, Thermometer, Users, Zap } from "lucide-react";
+import { AlertTriangle, ExternalLink, Layers, Thermometer, Users, Zap } from "lucide-react";
 import { getRooms } from "@/lib/building-api";
 import {
+  alertSeverityLabel,
+  alertSeverityVariant,
+  alertSourceLabel,
+  alertSourceVariant,
   getFloorPlanBox,
+  groupOperationalAlerts,
   occupancyBadgeVariant,
   occupancyLabel,
+  operationalAlertCategoryLabel,
   statusBadgeVariant,
   statusLabel,
 } from "@/lib/building-ui";
@@ -96,6 +103,10 @@ export function FloorPlanView() {
   const floors = useMemo(() => Array.from(new Set(rooms.map((room) => room.floor))).sort((a, b) => a - b), [rooms]);
   const visibleRooms = rooms.filter((room) => room.floor === selectedFloor);
   const selectedRoom = rooms.find((room) => room.id === selectedRoomId) ?? null;
+  const selectedAlertGroups = useMemo(
+    () => (selectedRoom ? groupOperationalAlerts(selectedRoom.alerts) : []),
+    [selectedRoom],
+  );
 
   if (isLoading) {
     return <Card>Loading floor plan...</Card>;
@@ -174,6 +185,7 @@ export function FloorPlanView() {
             {visibleRooms.map((room, index) => {
               const box = getFloorPlanBox(room, index);
               const isSelected = room.id === selectedRoomId;
+              const primaryAlertCount = groupOperationalAlerts(room.alerts).length;
 
               return (
                 <g key={room.id} onClick={() => setSelectedRoomId(room.id)} className="cursor-pointer">
@@ -208,7 +220,7 @@ export function FloorPlanView() {
                     {activeLayer === "occupancy" && occupancyLabel(room.occupancyStatus)}
                     {activeLayer === "status" && statusLabel(room.status)}
                   </text>
-                  {room.alerts.length > 0 && (
+                  {primaryAlertCount > 0 && (
                     <>
                       <circle cx={box.x + box.width - 18} cy={box.y + 18} r="8" className="fill-rose-500" />
                       <text
@@ -292,21 +304,46 @@ export function FloorPlanView() {
                 </div>
               </div>
 
-              {selectedRoom.alerts.length > 0 && (
+              {selectedAlertGroups.length > 0 && (
                 <div className="rounded-lg border border-rose-100 bg-rose-50 p-3">
                   <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-rose-700">
                     <AlertTriangle size={14} />
-                    Active alerts
+                    Operational alerts
                   </p>
                   <div className="mt-3 space-y-2">
-                    {selectedRoom.alerts.map((alert) => (
-                      <p key={alert.id} className="text-sm leading-5 text-rose-900">
-                        {alert.message}
-                      </p>
-                    ))}
+                    {selectedAlertGroups.map((group) => {
+                      const alert = group.primary;
+
+                      return (
+                      <div key={group.id} className="rounded-md bg-white/70 p-2">
+                        <div className="mb-1 flex flex-wrap gap-1.5">
+                          <Badge variant={alertSeverityVariant(alert.severity)}>
+                            {alertSeverityLabel(alert.severity)}
+                          </Badge>
+                          <Badge variant={alertSourceVariant(alert.source)}>
+                            {alertSourceLabel(alert.source)}
+                          </Badge>
+                        </div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-rose-600">
+                          {operationalAlertCategoryLabel(group.category)}
+                        </p>
+                        <p className="text-sm leading-5 text-rose-900">{alert.message}</p>
+                      </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
+
+              <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                <Link
+                  href="/alerts"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  View full alerts
+                  <ExternalLink size={13} />
+                </Link>
+              </div>
             </div>
           </Card>
         ) : (

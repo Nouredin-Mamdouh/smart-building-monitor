@@ -15,9 +15,13 @@ import { getAlerts, getRooms } from "@/lib/building-api";
 import {
   alertSeverityLabel,
   alertSeverityVariant,
+  alertSourceLabel,
+  alertSourceVariant,
   calculateBuildingStats,
   formatDateTime,
+  groupOperationalAlerts,
   occupancyLabel,
+  operationalAlertCategoryLabel,
   statusBadgeVariant,
   statusLabel,
 } from "@/lib/building-ui";
@@ -60,6 +64,10 @@ export function DashboardOverview() {
   }, []);
 
   const stats = useMemo(() => calculateBuildingStats(rooms, alerts), [rooms, alerts]);
+  const alertFeed = useMemo(
+    () => groupOperationalAlerts(alerts.filter((alert) => alert.status === "ACTIVE")).slice(0, 6),
+    [alerts],
+  );
   const occupancyPercent = stats.totalRooms
     ? Math.round((stats.occupiedRooms / stats.totalRooms) * 100)
     : 0;
@@ -202,19 +210,41 @@ export function DashboardOverview() {
           }
         >
           <div className="space-y-3">
-            {alerts.slice(0, 6).map((alert) => (
-              <div key={alert.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-3">
+            {alertFeed.map((group) => {
+              const alert = group.primary;
+
+              return (
+              <button
+                type="button"
+                key={group.id}
+                onClick={() => router.push(`/floor-plan?roomId=${encodeURIComponent(alert.roomId)}`)}
+                className="block w-full rounded-lg border border-slate-100 bg-slate-50 px-3 py-3 text-left transition hover:bg-white hover:shadow-sm"
+              >
                 <div className="flex items-center justify-between gap-2">
-                  <Badge variant={alertSeverityVariant(alert.severity)}>
-                    {alertSeverityLabel(alert.severity)}
-                  </Badge>
+                  <div className="flex flex-wrap gap-1.5">
+                    <Badge variant={alertSeverityVariant(alert.severity)}>
+                      {alertSeverityLabel(alert.severity)}
+                    </Badge>
+                    <Badge variant={alertSourceVariant(alert.source)}>
+                      {alertSourceLabel(alert.source)}
+                    </Badge>
+                  </div>
                   <span className="text-[10px] font-medium text-slate-400">{formatDateTime(alert.createdAt)}</span>
                 </div>
                 <p className="mt-2 text-sm font-semibold text-slate-900">{alert.room.name}</p>
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  {operationalAlertCategoryLabel(group.category)}
+                </p>
                 <p className="mt-1 text-xs leading-5 text-slate-500">{alert.message}</p>
-              </div>
-            ))}
-            {alerts.length === 0 && (
+                {group.diagnostics.length > 0 && (
+                  <p className="mt-2 text-[10px] font-semibold text-slate-500">
+                    {group.diagnostics.length} supporting signal{group.diagnostics.length === 1 ? "" : "s"}
+                  </p>
+                )}
+              </button>
+              );
+            })}
+            {alertFeed.length === 0 && (
               <div className="flex items-center gap-3 rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
                 <Building2 size={18} />
                 No alerts to review.

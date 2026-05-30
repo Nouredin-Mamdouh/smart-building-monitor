@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -14,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import type { CurrentUser } from "@/components/auth/CurrentUserProvider";
+import { getPrimaryOperationalAlerts } from "@/lib/building-ui";
 import type { AlertWithRelations } from "@/types/building";
 
 const baseNavItems = [
@@ -32,6 +34,7 @@ export function Sidebar({
   currentUser: CurrentUser;
 }) {
   const pathname = usePathname();
+  const activeAlertCount = useMemo(() => getPrimaryOperationalAlerts(activeAlerts).length, [activeAlerts]);
   const navItems =
     currentUser.role === "ADMIN"
       ? [
@@ -73,9 +76,9 @@ export function Sidebar({
                 <Icon size={18} />
                 {item.name}
               </span>
-              {item.href === "/floor-plan" && activeAlerts.length > 0 && (
+              {item.href === "/floor-plan" && activeAlertCount > 0 && (
                 <span className="rounded-md border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-300">
-                  {activeAlerts.length}
+                  {activeAlertCount}
                 </span>
               )}
             </Link>

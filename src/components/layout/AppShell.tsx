@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { getAlerts } from "@/lib/building-api";
 import type { AlertWithRelations } from "@/types/building";
 import { useCurrentUser } from "@/components/auth/CurrentUserProvider";
@@ -9,27 +10,57 @@ import { Topbar } from "./Topbar";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const currentUser = useCurrentUser();
+  const pathname = usePathname();
   const [alerts, setAlerts] = useState<AlertWithRelations[]>([]);
+
+  const refreshAlerts = useCallback(async () => {
+    try {
+      const data = await getAlerts();
+      setAlerts(data.filter((alert) => alert.status === "ACTIVE"));
+    } catch {
+      setAlerts([]);
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
 
-    getAlerts()
-      .then((data) => {
+    const loadAlerts = async () => {
+      try {
+        const data = await getAlerts();
+
         if (isMounted) {
           setAlerts(data.filter((alert) => alert.status === "ACTIVE"));
         }
-      })
-      .catch(() => {
+      } catch {
         if (isMounted) {
           setAlerts([]);
         }
-      });
+      }
+    };
+
+    void loadAlerts();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [pathname]);
+
+  useEffect(() => {
+    const onAlertActivityChanged = () => {
+      void refreshAlerts();
+    };
+    const interval = window.setInterval(() => {
+      void refreshAlerts();
+    }, 30000);
+
+    window.addEventListener("alert-activity-changed", onAlertActivityChanged);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("alert-activity-changed", onAlertActivityChanged);
+    };
+  }, [refreshAlerts]);
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
