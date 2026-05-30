@@ -5,7 +5,8 @@ Internal operations dashboard for monitoring rooms, sensors, and alerts in a sma
 ## Features
 
 - Secure internal login with hashed passwords
-- Protected dashboard, rooms, floor plan, sensors, and alerts routes
+- Protected dashboard, rooms, floor plan, sensors, alerts, and user access overview routes
+- Role-based action visibility for Admin, Operator, and Viewer users
 - PostgreSQL-backed CRUD for rooms, sensors, and alerts
 - Validation, loading, empty, error, success, and delete confirmation states
 - SVG floor plan tied to real room records
@@ -34,6 +35,12 @@ AUTH_TRUST_HOST="true"
 SEED_ADMIN_EMAIL="admin@example.com"
 SEED_ADMIN_PASSWORD="replace-with-a-long-random-password"
 SEED_ADMIN_NAME="Internal Admin"
+SEED_OPERATOR_EMAIL="operator@example.com"
+SEED_OPERATOR_PASSWORD="replace-with-a-long-random-password"
+SEED_OPERATOR_NAME="Internal Operator"
+SEED_VIEWER_EMAIL="viewer@example.com"
+SEED_VIEWER_PASSWORD="replace-with-a-long-random-password"
+SEED_VIEWER_NAME="Internal Viewer"
 ```
 
 Generate a strong Auth.js secret:
@@ -65,7 +72,7 @@ npx prisma migrate dev
 npx prisma generate
 ```
 
-Seed rooms, sensors, alerts, and the internal admin user:
+Seed rooms, sensors, alerts, and internal users:
 
 ```bash
 npm run db:seed
@@ -77,7 +84,7 @@ Start the development server:
 npm run dev
 ```
 
-Open http://localhost:3000 and sign in with the seeded internal admin email and password from your local `.env`.
+Open http://localhost:3000/dashboard and sign in with one of the seeded internal users from your local `.env`.
 
 ## Production Build
 
@@ -93,7 +100,15 @@ For deployment, provide `DATABASE_URL`, `AUTH_SECRET`, `AUTH_TRUST_HOST`, and in
 
 This is an internal operations dashboard, so public registration is intentionally excluded. Users are provisioned through controlled seed/admin processes. Auth.js handles secure session cookies/JWT sessions, while Prisma stores internal users with bcrypt-hashed passwords.
 
-`proxy.ts` is used only for optimistic redirects. Protected API handlers still call `auth()` directly and return `401` when unauthenticated. Mutation endpoints require an admin user.
+`src/proxy.ts` is used only for optimistic redirects. Protected API handlers still call `auth()` directly and return `401` when unauthenticated. Mutation endpoints enforce role permissions server-side and return `403` for authenticated users without the required permission.
+
+## Role Access
+
+- Admin: full CRUD for rooms, sensors, and alerts, plus read-only access to `/users-roles`.
+- Operator: read access everywhere, plus create/update/resolve alerts.
+- Viewer: read-only access to operational pages.
+
+The `/users-roles` page is intentionally informational. It lists real seeded users and the permission matrix, but does not expose fake user-management controls.
 
 ## API Overview
 
@@ -129,5 +144,5 @@ npm run dev       # start development server
 npm run build     # production build
 npm start         # start production server
 npm run lint      # run ESLint
-npm run db:seed   # seed demo building data and internal admin user
+npm run db:seed   # seed demo building data and internal users
 ```

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { apiError, forbidden, noContent, ok, unauthorized, validationError } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth-users";
+import { hasPermission } from "@/lib/rbac";
 import { sensorUpdateSchema } from "@/lib/validation";
 import { Prisma } from "@prisma/client";
 
@@ -37,7 +38,7 @@ export async function PUT(request: Request, context: RouteContext) {
     return unauthorized();
   }
 
-  if (user.role !== "ADMIN") {
+  if (!hasPermission(user.role, "sensor:update")) {
     return forbidden();
   }
 
@@ -85,7 +86,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return unauthorized();
   }
 
-  if (user.role !== "ADMIN") {
+  if (!hasPermission(user.role, "sensor:delete")) {
     return forbidden();
   }
 

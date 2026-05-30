@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, Calendar, CheckCircle2, Menu, ShieldAlert } from "lucide-react";
+import type { CurrentUser } from "@/components/auth/CurrentUserProvider";
+import { roleMeta } from "@/lib/rbac";
 import { alertSeverityLabel, alertSeverityVariant, formatDateTime } from "@/lib/building-ui";
 import type { AlertWithRelations } from "@/types/building";
 import { Badge } from "../common/Badge";
@@ -10,6 +12,11 @@ import { LogoutButton } from "../auth/LogoutButton";
 
 function screenCopy(pathname: string) {
   switch (pathname) {
+    case "/dashboard":
+      return {
+        title: "Building Dashboard",
+        subtitle: "Real-time room status, occupancy, energy, and alerts.",
+      };
     case "/floor-plan":
       return {
         title: "Digital Floor Plan",
@@ -28,7 +35,12 @@ function screenCopy(pathname: string) {
     case "/alerts":
       return {
         title: "Alert Operations",
-        subtitle: "Create, update, resolve, and remove operational alerts.",
+        subtitle: "Create, update, resolve, and review operational alerts.",
+      };
+    case "/users-roles":
+      return {
+        title: "User & Role Access",
+        subtitle: "Read-only internal access overview for administrators.",
       };
     default:
       return {
@@ -38,11 +50,18 @@ function screenCopy(pathname: string) {
   }
 }
 
-export function Topbar({ activeAlerts }: { activeAlerts: AlertWithRelations[] }) {
+export function Topbar({
+  activeAlerts,
+  currentUser,
+}: {
+  activeAlerts: AlertWithRelations[];
+  currentUser: CurrentUser;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [showAlerts, setShowAlerts] = useState(false);
   const copy = screenCopy(pathname);
+  const currentRoleMeta = roleMeta[currentUser.role];
 
   const today = new Intl.DateTimeFormat("en", {
     month: "short",
@@ -65,6 +84,10 @@ export function Topbar({ activeAlerts }: { activeAlerts: AlertWithRelations[] })
         <div className="hidden items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500 lg:flex">
           <Calendar size={14} />
           {today}
+        </div>
+
+        <div className={`hidden rounded-full border px-3 py-1.5 text-xs font-bold md:block ${currentRoleMeta.badgeClassName}`}>
+          {currentRoleMeta.label}
         </div>
 
         <div className="relative">

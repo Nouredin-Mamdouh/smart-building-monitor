@@ -1,39 +1,32 @@
 import { prisma } from "../src/lib/prisma";
 import bcrypt from "bcryptjs";
+import type { UserRole } from "@prisma/client";
 
 async function main() {
     await prisma.alert.deleteMany();
     await prisma.sensor.deleteMany();
     await prisma.room.deleteMany();
 
-    const adminEmail = process.env.SEED_ADMIN_EMAIL;
-    const adminPassword = process.env.SEED_ADMIN_PASSWORD;
-    const adminName = process.env.SEED_ADMIN_NAME ?? "Internal Admin";
+    await seedInternalUser({
+        email: process.env.SEED_ADMIN_EMAIL,
+        password: process.env.SEED_ADMIN_PASSWORD,
+        name: process.env.SEED_ADMIN_NAME ?? "Internal Admin",
+        role: "ADMIN",
+    });
 
-    if (adminEmail && adminPassword) {
-        const passwordHash = await bcrypt.hash(adminPassword, 12);
+    await seedInternalUser({
+        email: process.env.SEED_OPERATOR_EMAIL,
+        password: process.env.SEED_OPERATOR_PASSWORD,
+        name: process.env.SEED_OPERATOR_NAME ?? "Internal Operator",
+        role: "OPERATOR",
+    });
 
-        await prisma.user.upsert({
-            where: {
-                email: adminEmail.toLowerCase(),
-            },
-            update: {
-                name: adminName,
-                passwordHash,
-                role: "ADMIN",
-            },
-            create: {
-                name: adminName,
-                email: adminEmail.toLowerCase(),
-                passwordHash,
-                role: "ADMIN",
-            },
-        });
-    } else {
-        console.warn(
-            "Skipped internal admin seed. Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD to seed a login account."
-        );
-    }
+    await seedInternalUser({
+        email: process.env.SEED_VIEWER_EMAIL,
+        password: process.env.SEED_VIEWER_PASSWORD,
+        name: process.env.SEED_VIEWER_NAME ?? "Internal Viewer",
+        role: "VIEWER",
+    });
 
     const room101 = await prisma.room.create({
         data: {
@@ -205,6 +198,42 @@ async function main() {
 
     console.log("Seed completed successfully.");
     console.log({ sensorsCreated: sensors.count });
+}
+
+async function seedInternalUser({
+    email,
+    password,
+    name,
+    role,
+}: {
+    email: string | undefined;
+    password: string | undefined;
+    name: string;
+    role: UserRole;
+}) {
+    if (!email || !password) {
+        console.warn(`Skipped ${role.toLowerCase()} user seed. Set SEED_${role}_EMAIL and SEED_${role}_PASSWORD.`);
+        return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    await prisma.user.upsert({
+        where: {
+            email: email.toLowerCase(),
+        },
+        update: {
+            name,
+            passwordHash,
+            role,
+        },
+        create: {
+            name,
+            email: email.toLowerCase(),
+            passwordHash,
+            role,
+        },
+    });
 }
 
 main()

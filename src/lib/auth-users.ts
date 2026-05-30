@@ -1,4 +1,5 @@
 import { auth } from "../../auth";
+import { hasPermission, type Permission } from "@/lib/rbac";
 
 export async function requireUser() {
   const session = await auth();
@@ -14,6 +15,16 @@ export async function requireAdmin() {
   const user = await requireUser();
 
   if (!user || user.role !== "ADMIN") {
+    return null;
+  }
+
+  return user;
+}
+
+export async function requirePermission(permission: Permission) {
+  const user = await requireUser();
+
+  if (!user || !hasPermission(user.role, permission)) {
     return null;
   }
 

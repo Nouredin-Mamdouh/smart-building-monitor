@@ -4,11 +4,12 @@ import { useActionState } from "react";
 import { LogIn } from "lucide-react";
 import { authenticate } from "@/app/actions/auth";
 
-export function LoginForm() {
+export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const [errorMessage, formAction, isPending] = useActionState(authenticate, undefined);
 
   return (
     <form action={formAction} className="space-y-4">
+      <input type="hidden" name="callbackUrl" value={callbackUrl} />
       <div>
         <label htmlFor="email" className="text-sm font-semibold text-slate-700">
           Email

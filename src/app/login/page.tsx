@@ -1,8 +1,23 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { auth } from "../../../auth";
+import { DEFAULT_APP_ROUTE, normalizeCallbackUrl } from "@/lib/auth-redirect";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string }>;
+}) {
+  const session = await auth();
+  const params = await searchParams;
+  const callbackUrl = normalizeCallbackUrl(params.callbackUrl);
+
+  if (session?.user) {
+    redirect(callbackUrl || DEFAULT_APP_ROUTE);
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12">
       <section className="w-full max-w-md overflow-hidden rounded-lg border border-slate-800 bg-white shadow-2xl">
@@ -19,7 +34,7 @@ export default function LoginPage() {
         </div>
         <div className="px-6 py-6">
           <Suspense>
-            <LoginForm />
+            <LoginForm callbackUrl={callbackUrl} />
           </Suspense>
         </div>
       </section>

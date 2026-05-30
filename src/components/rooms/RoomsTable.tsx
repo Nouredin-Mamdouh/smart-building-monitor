@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, Pencil, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
+import { useCurrentUser } from "@/components/auth/CurrentUserProvider";
 import { createRoom, deleteRoom, getRooms, updateRoom } from "@/lib/building-api";
 import {
   occupancyBadgeVariant,
@@ -9,6 +10,7 @@ import {
   statusBadgeVariant,
   statusLabel,
 } from "@/lib/building-ui";
+import { hasPermission } from "@/lib/rbac";
 import type { RoomFormInput } from "@/lib/validation";
 import type { OccupancyStatus, RoomStatus, RoomWithRelations } from "@/types/building";
 import { Badge } from "../common/Badge";
@@ -22,6 +24,11 @@ type SortField = "name" | "floor" | "temperature" | "energyConsumption" | "statu
 type SortOrder = "asc" | "desc";
 
 export function RoomsTable() {
+  const currentUser = useCurrentUser();
+  const canCreateRoom = hasPermission(currentUser.role, "room:create");
+  const canUpdateRoom = hasPermission(currentUser.role, "room:update");
+  const canDeleteRoom = hasPermission(currentUser.role, "room:delete");
+  const canMutateRooms = canCreateRoom || canUpdateRoom || canDeleteRoom;
   const [rooms, setRooms] = useState<RoomWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,6 +119,11 @@ export function RoomsTable() {
   };
 
   const handleSubmit = async (input: RoomFormInput) => {
+    if ((editingRoom && !canUpdateRoom) || (!editingRoom && !canCreateRoom)) {
+      setError("Your role can view rooms but cannot save room changes.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     setFeedback(null);
@@ -137,7 +149,7 @@ export function RoomsTable() {
   };
 
   const handleDelete = async () => {
-    if (!deletingRoom) {
+    if (!deletingRoom || !canDeleteRoom) {
       return;
     }
 
@@ -164,6 +176,9 @@ export function RoomsTable() {
     <div className="space-y-6">
       {error && <Feedback type="error" message={error} />}
       {feedback && <Feedback type="success" message={feedback} />}
+      {!canMutateRooms && (
+        <Feedback type="info" message="Your role has read-only access to rooms. Room changes require an admin." />
+      )}
 
       <Card>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -224,22 +239,24 @@ export function RoomsTable() {
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={() => {
-                setEditingRoom(null);
-                setIsFormOpen(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
-            >
-              <Plus size={15} />
-              Add room
-            </button>
+            {canCreateRoom && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingRoom(null);
+                  setIsFormOpen(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+              >
+                <Plus size={15} />
+                Add room
+              </button>
+            )}
           </div>
         </div>
       </Card>
 
-      {isFormOpen && (
+      {isFormOpen && (editingRoom ? canUpdateRoom : canCreateRoom) && (
         <Card title={editingRoom ? "Edit Room" : "Create Room"}>
           <RoomForm
             room={editingRoom}
@@ -255,7 +272,10 @@ export function RoomsTable() {
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         {processedRooms.length === 0 ? (
-          <EmptyState title="No rooms found" message="Create a room or adjust the filters to see room records." />
+          <EmptyState
+            title="No rooms found"
+            message={canCreateRoom ? "Create a room or adjust the filters to see room records." : "Adjust the filters to see room records."}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[960px] border-collapse text-left">
@@ -297,7 +317,7 @@ export function RoomsTable() {
                   </th>
                   <th className="px-5 py-4 text-center">Sensors</th>
                   <th className="px-5 py-4 text-center">Alerts</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
+                  {canMutateRooms && <th className="px-5 py-4 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -330,29 +350,35 @@ export function RoomsTable() {
                     <td className="px-5 py-4 text-center font-mono font-semibold text-slate-700">
                       {room.alerts.length}
                     </td>
-                    <td className="px-5 py-4">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingRoom(room);
-                            setIsFormOpen(true);
-                          }}
-                          className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-                          aria-label={`Edit ${room.name}`}
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeletingRoom(room)}
-                          className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50"
-                          aria-label={`Delete ${room.name}`}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
+                    {canMutateRooms && (
+                      <td className="px-5 py-4">
+                        <div className="flex justify-end gap-2">
+                          {canUpdateRoom && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingRoom(room);
+                                setIsFormOpen(true);
+                              }}
+                              className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                              aria-label={`Edit ${room.name}`}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                          )}
+                          {canDeleteRoom && (
+                            <button
+                              type="button"
+                              onClick={() => setDeletingRoom(room)}
+                              className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50"
+                              aria-label={`Delete ${room.name}`}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

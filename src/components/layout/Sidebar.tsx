@@ -10,20 +10,34 @@ import {
   Gauge,
   LayoutDashboard,
   Map,
+  ShieldCheck,
   TableProperties,
 } from "lucide-react";
+import type { CurrentUser } from "@/components/auth/CurrentUserProvider";
+import { roleMeta } from "@/lib/rbac";
 import type { AlertWithRelations } from "@/types/building";
 
-const navItems = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+const baseNavItems = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Floor Plan", href: "/floor-plan", icon: Map },
   { name: "Rooms", href: "/rooms", icon: TableProperties },
   { name: "Sensors", href: "/sensors", icon: Gauge },
   { name: "Alerts", href: "/alerts", icon: BellRing },
 ];
 
-export function Sidebar({ activeAlerts }: { activeAlerts: AlertWithRelations[] }) {
+export function Sidebar({
+  activeAlerts,
+  currentUser,
+}: {
+  activeAlerts: AlertWithRelations[];
+  currentUser: CurrentUser;
+}) {
   const pathname = usePathname();
+  const navItems =
+    currentUser.role === "ADMIN"
+      ? [...baseNavItems, { name: "User & Role Access", href: "/users-roles", icon: ShieldCheck }]
+      : baseNavItems;
+  const currentRoleMeta = roleMeta[currentUser.role];
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-800 bg-slate-950 text-slate-300 md:flex">
@@ -79,16 +93,15 @@ export function Sidebar({ activeAlerts }: { activeAlerts: AlertWithRelations[] }
 
       <div className="border-t border-slate-800 bg-slate-950 px-4 py-4">
         <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400">REST Gateway</span>
-            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              Active
+          <div className="flex items-center justify-between gap-3">
+            <span className="truncate text-xs font-semibold text-slate-200">{currentUser.name}</span>
+            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${currentRoleMeta.badgeClassName}`}>
+              {currentRoleMeta.label}
             </span>
           </div>
           <div className="mt-2 flex items-center gap-2 text-[10px] font-mono text-slate-500">
             <Activity size={12} className="text-teal-400" />
-            /api/rooms /api/alerts
+            {currentUser.email || "internal user"}
           </div>
         </div>
       </div>

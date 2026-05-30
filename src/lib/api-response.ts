@@ -33,5 +33,5 @@ export function unauthorized() {
 }
 
 export function forbidden() {
-  return apiError("Admin permission required", 403);
+  return apiError("You do not have permission to perform this action.", 403);
 }

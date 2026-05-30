@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { useCurrentUser } from "@/components/auth/CurrentUserProvider";
 import { createSensor, deleteSensor, getRooms, getSensors, updateSensor } from "@/lib/building-api";
+import { hasPermission } from "@/lib/rbac";
 import type { SensorFormInput } from "@/lib/validation";
 import type { RoomWithRelations, SensorWithRelations } from "@/types/building";
 import { Badge } from "../common/Badge";
@@ -20,6 +22,11 @@ function sensorVariant(status: SensorWithRelations["status"]) {
 }
 
 export function SensorsManager() {
+  const currentUser = useCurrentUser();
+  const canCreateSensor = hasPermission(currentUser.role, "sensor:create");
+  const canUpdateSensor = hasPermission(currentUser.role, "sensor:update");
+  const canDeleteSensor = hasPermission(currentUser.role, "sensor:delete");
+  const canMutateSensors = canCreateSensor || canUpdateSensor || canDeleteSensor;
   const [sensors, setSensors] = useState<SensorWithRelations[]>([]);
   const [rooms, setRooms] = useState<RoomWithRelations[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,6 +74,11 @@ export function SensorsManager() {
   }, [roomFilter, sensors]);
 
   const handleSubmit = async (input: SensorFormInput) => {
+    if ((editingSensor && !canUpdateSensor) || (!editingSensor && !canCreateSensor)) {
+      setError("Your role can view sensors but cannot save sensor changes.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     setFeedback(null);
@@ -92,7 +104,7 @@ export function SensorsManager() {
   };
 
   const handleDelete = async () => {
-    if (!deletingSensor) {
+    if (!deletingSensor || !canDeleteSensor) {
       return;
     }
 
@@ -119,6 +131,9 @@ export function SensorsManager() {
     <div className="space-y-6">
       {error && <Feedback type="error" message={error} />}
       {feedback && <Feedback type="success" message={feedback} />}
+      {!canMutateSensors && (
+        <Feedback type="info" message="Your role has read-only access to sensors. Sensor changes require an admin." />
+      )}
 
       <Card>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -134,21 +149,23 @@ export function SensorsManager() {
               </option>
             ))}
           </select>
-          <button
-            type="button"
-            onClick={() => {
-              setEditingSensor(null);
-              setIsFormOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
-          >
-            <Plus size={15} />
-            Add sensor
-          </button>
+          {canCreateSensor && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingSensor(null);
+                setIsFormOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+            >
+              <Plus size={15} />
+              Add sensor
+            </button>
+          )}
         </div>
       </Card>
 
-      {isFormOpen && (
+      {isFormOpen && (editingSensor ? canUpdateSensor : canCreateSensor) && (
         <Card title={editingSensor ? "Edit Sensor" : "Create Sensor"}>
           <SensorForm
             sensor={editingSensor}
@@ -165,7 +182,10 @@ export function SensorsManager() {
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         {visibleSensors.length === 0 ? (
-          <EmptyState title="No sensors found" message="Create a sensor or change the room filter." />
+          <EmptyState
+            title="No sensors found"
+            message={canCreateSensor ? "Create a sensor or change the room filter." : "Change the room filter to inspect sensors."}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] border-collapse text-left">
@@ -176,7 +196,7 @@ export function SensorsManager() {
                   <th className="px-5 py-4 text-center">Type</th>
                   <th className="px-5 py-4 text-center">Value</th>
                   <th className="px-5 py-4 text-center">Status</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
+                  {canMutateSensors && <th className="px-5 py-4 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -193,27 +213,35 @@ export function SensorsManager() {
                         {sensor.status}
                       </Badge>
                     </td>
-                    <td className="px-5 py-4">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingSensor(sensor);
-                            setIsFormOpen(true);
-                          }}
-                          className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeletingSensor(sensor)}
-                          className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
+                    {canMutateSensors && (
+                      <td className="px-5 py-4">
+                        <div className="flex justify-end gap-2">
+                          {canUpdateSensor && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingSensor(sensor);
+                                setIsFormOpen(true);
+                              }}
+                              className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                              aria-label={`Edit ${sensor.name}`}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                          )}
+                          {canDeleteSensor && (
+                            <button
+                              type="button"
+                              onClick={() => setDeletingSensor(sensor)}
+                              className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50"
+                              aria-label={`Delete ${sensor.name}`}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

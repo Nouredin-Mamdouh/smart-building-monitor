@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiError, created, forbidden, unauthorized, validationError } from "@/lib/api-response";
 import { requireUser } from "@/lib/auth-users";
+import { hasPermission } from "@/lib/rbac";
 import { sensorCreateSchema } from "@/lib/validation";
 
 export async function GET() {
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
         return unauthorized();
     }
 
-    if (user.role !== "ADMIN") {
+    if (!hasPermission(user.role, "sensor:create")) {
         return forbidden();
     }
 

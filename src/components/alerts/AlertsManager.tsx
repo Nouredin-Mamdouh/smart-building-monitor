@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useCurrentUser } from "@/components/auth/CurrentUserProvider";
 import {
   createAlert,
   deleteAlert,
@@ -17,6 +18,7 @@ import {
   alertStatusVariant,
   formatDateTime,
 } from "@/lib/building-ui";
+import { hasPermission } from "@/lib/rbac";
 import type { AlertFormInput } from "@/lib/validation";
 import type { AlertStatus, AlertWithRelations, RoomWithRelations, SensorWithRelations } from "@/types/building";
 import { Badge } from "../common/Badge";
@@ -27,6 +29,11 @@ import { Feedback } from "../common/Feedback";
 import { AlertForm } from "./AlertForm";
 
 export function AlertsManager() {
+  const currentUser = useCurrentUser();
+  const canCreateAlert = hasPermission(currentUser.role, "alert:create");
+  const canUpdateAlert = hasPermission(currentUser.role, "alert:update");
+  const canDeleteAlert = hasPermission(currentUser.role, "alert:delete");
+  const canMutateAlerts = canCreateAlert || canUpdateAlert || canDeleteAlert;
   const [alerts, setAlerts] = useState<AlertWithRelations[]>([]);
   const [rooms, setRooms] = useState<RoomWithRelations[]>([]);
   const [sensors, setSensors] = useState<SensorWithRelations[]>([]);
@@ -76,6 +83,11 @@ export function AlertsManager() {
   }, [alerts, statusFilter]);
 
   const handleSubmit = async (input: AlertFormInput) => {
+    if ((editingAlert && !canUpdateAlert) || (!editingAlert && !canCreateAlert)) {
+      setError("Your role can view alerts but cannot save alert changes.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     setFeedback(null);
@@ -101,7 +113,7 @@ export function AlertsManager() {
   };
 
   const handleDelete = async () => {
-    if (!deletingAlert) {
+    if (!deletingAlert || !canDeleteAlert) {
       return;
     }
 
@@ -128,6 +140,9 @@ export function AlertsManager() {
     <div className="space-y-6">
       {error && <Feedback type="error" message={error} />}
       {feedback && <Feedback type="success" message={feedback} />}
+      {!canMutateAlerts && (
+        <Feedback type="info" message="Your role has read-only access to alerts. Alert changes require an operator or admin." />
+      )}
 
       <Card>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -140,21 +155,23 @@ export function AlertsManager() {
             <option value="RESOLVED">Resolved alerts</option>
             <option value="ALL">All alerts</option>
           </select>
-          <button
-            type="button"
-            onClick={() => {
-              setEditingAlert(null);
-              setIsFormOpen(true);
-            }}
-            className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
-          >
-            <Plus size={15} />
-            Add alert
-          </button>
+          {canCreateAlert && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingAlert(null);
+                setIsFormOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-950 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+            >
+              <Plus size={15} />
+              Add alert
+            </button>
+          )}
         </div>
       </Card>
 
-      {isFormOpen && (
+      {isFormOpen && (editingAlert ? canUpdateAlert : canCreateAlert) && (
         <Card title={editingAlert ? "Edit Alert" : "Create Alert"}>
           <AlertForm
             alert={editingAlert}
@@ -172,7 +189,10 @@ export function AlertsManager() {
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         {visibleAlerts.length === 0 ? (
-          <EmptyState title="No alerts found" message="Create an alert or change the status filter." />
+          <EmptyState
+            title="No alerts found"
+            message={canCreateAlert ? "Create an alert or change the status filter." : "Change the status filter to inspect alerts."}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] border-collapse text-left">
@@ -183,7 +203,7 @@ export function AlertsManager() {
                   <th className="px-5 py-4 text-center">Severity</th>
                   <th className="px-5 py-4 text-center">Status</th>
                   <th className="px-5 py-4 text-center">Created</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
+                  {canMutateAlerts && <th className="px-5 py-4 text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -215,27 +235,35 @@ export function AlertsManager() {
                     <td className="px-5 py-4 text-center text-xs font-medium text-slate-500">
                       {formatDateTime(alert.createdAt)}
                     </td>
-                    <td className="px-5 py-4">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingAlert(alert);
-                            setIsFormOpen(true);
-                          }}
-                          className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-                        >
-                          <Pencil size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeletingAlert(alert)}
-                          className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
+                    {canMutateAlerts && (
+                      <td className="px-5 py-4">
+                        <div className="flex justify-end gap-2">
+                          {canUpdateAlert && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingAlert(alert);
+                                setIsFormOpen(true);
+                              }}
+                              className="rounded-lg border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                              aria-label={`Edit alert for ${alert.room.name}`}
+                            >
+                              <Pencil size={15} />
+                            </button>
+                          )}
+                          {canDeleteAlert && (
+                            <button
+                              type="button"
+                              onClick={() => setDeletingAlert(alert)}
+                              className="rounded-lg border border-rose-200 p-2 text-rose-500 transition hover:bg-rose-50"
+                              aria-label={`Delete alert for ${alert.room.name}`}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

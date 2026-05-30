@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { authConfig } from "./auth.config";
 import { prisma } from "@/lib/prisma";
+import { isAppRole } from "@/lib/rbac";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -27,7 +28,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub ?? "";
-        session.user.role = typeof token.role === "string" ? token.role : "OPERATOR";
+        session.user.role = isAppRole(token.role) ? token.role : "VIEWER";
       }
 
       return session;
